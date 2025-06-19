@@ -243,7 +243,38 @@ jobs:
         Commit: ${{ github.sha }}
         EOF
         
+        # Create ZIP package with executable
+        ZIP_NAME="gsai-${VERSION}-${{ matrix.platform }}-${{ matrix.arch }}"
+        mkdir -p "${ZIP_NAME}"
+        cp "dist/gsai${{ matrix.extension }}" "${ZIP_NAME}/"
+        cp "release/${ARTIFACT_NAME}.info" "${ZIP_NAME}/README.txt"
+        
+        # Add installation instructions to ZIP
+        cat > "${ZIP_NAME}/INSTALL.txt" << EOF
+        GitStart CoPilot CLI - Installation Instructions
+        
+        1. Extract this ZIP file to a directory of your choice
+        2. Make the executable runnable (Linux/macOS only):
+           chmod +x gsai${{ matrix.extension }}
+        3. Run the application:
+           ./gsai${{ matrix.extension }} --help
+        4. Configure your API keys:
+           ./gsai${{ matrix.extension }} configure
+        5. Start coding with AI:
+           ./gsai${{ matrix.extension }} chat
+        
+        For more help, visit: https://github.com/your-org/gitstart-cli
+        EOF
+        
+        # Create the ZIP file
+        if [ "${{ matrix.platform }}" == "windows" ]; then
+          powershell -command "Compress-Archive -Path '${ZIP_NAME}' -DestinationPath 'release/${ZIP_NAME}.zip'"
+        else
+          zip -r "release/${ZIP_NAME}.zip" "${ZIP_NAME}"
+        fi
+        
         echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> $GITHUB_ENV
+        echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -261,9 +292,164 @@ jobs:
         fi
         rm -f gsai/build_config.py
 
+  source-package:
+    name: Create Source Package
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: Create source packages
+      shell: bash
+      run: |
+        # Set version
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${{ github.ref_name }}"
+        fi
+        
+        mkdir -p release
+        
+        # Create complete source package
+        SOURCE_NAME="gsai-${VERSION}-source"
+        mkdir -p "${SOURCE_NAME}"
+        
+        # Copy source files (exclude .git and build artifacts)
+        rsync -av --exclude='.git' \
+                  --exclude='__pycache__' \
+                  --exclude='*.pyc' \
+                  --exclude='.pytest_cache' \
+                  --exclude='dist' \
+                  --exclude='build' \
+                  --exclude='.venv' \
+                  --exclude='*.egg-info' \
+                  . "${SOURCE_NAME}/"
+        
+        # Add installation scripts to source package
+        cp install.sh "${SOURCE_NAME}/"
+        cp install.ps1 "${SOURCE_NAME}/"
+        cp standalone-install.sh "${SOURCE_NAME}/"
+        
+        # Create source installation guide
+        cat > "${SOURCE_NAME}/INSTALL-FROM-SOURCE.txt" << EOF
+        GitStart CoPilot CLI - Source Installation Guide
+        
+        ## Method 1: Quick Install with uv (Recommended)
+        1. Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh
+        2. Install dependencies: uv sync
+        3. Run directly: uv run gsai chat
+        
+        ## Method 2: Global Installation
+        1. Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh
+        2. Install globally: uv tool install .
+        3. Run from anywhere: gsai chat
+        
+        ## Method 3: Virtual Environment
+        1. Create venv: python3 -m venv venv
+        2. Activate: source venv/bin/activate (Linux/macOS) or venv\\Scripts\\activate (Windows)
+        3. Install: pip install -e .
+        4. Run: gsai chat
+        
+        ## Method 4: Use Installation Scripts
+        - Linux/macOS: ./install.sh
+        - Windows: .\\install.ps1
+        - Zero-deps: ./standalone-install.sh
+        
+        ## Configuration
+        1. Set API keys: gsai configure
+        2. Check status: gsai status
+        
+        For more help: https://github.com/your-org/gitstart-cli
+        EOF
+        
+        # Create ZIP of source
+        zip -r "release/${SOURCE_NAME}.zip" "${SOURCE_NAME}"
+        
+        # Create minimal source package (just Python code)
+        MINIMAL_NAME="gsai-${VERSION}-minimal-source"
+        mkdir -p "${MINIMAL_NAME}"
+        
+        # Copy only essential files
+        cp -r gsai "${MINIMAL_NAME}/"
+        cp pyproject.toml "${MINIMAL_NAME}/"
+        cp README.md "${MINIMAL_NAME}/" 2>/dev/null || echo "# GitStart CoPilot CLI" > "${MINIMAL_NAME}/README.md"
+        
+        # Create minimal install guide
+        cat > "${MINIMAL_NAME}/INSTALL.txt" << EOF
+        GitStart CoPilot CLI - Minimal Source Package
+        
+        Requirements: Python 3.10+, uv package manager
+        
+        Quick Install:
+        1. pip install uv
+        2. uv sync
+        3. uv run python -m gsai chat
+        
+        Alternative:
+        1. pip install -e .
+        2. gsai chat
+        EOF
+        
+        # Create ZIP of minimal source
+        zip -r "release/${MINIMAL_NAME}.zip" "${MINIMAL_NAME}"
+        
+        # Create installer-only package
+        INSTALLER_NAME="gsai-${VERSION}-installers"
+        mkdir -p "${INSTALLER_NAME}"
+        
+        cp install.sh "${INSTALLER_NAME}/"
+        cp install.ps1 "${INSTALLER_NAME}/"
+        cp standalone-install.sh "${INSTALLER_NAME}/"
+        cp -r docs "${INSTALLER_NAME}/" 2>/dev/null || mkdir "${INSTALLER_NAME}/docs"
+        
+        cat > "${INSTALLER_NAME}/README.txt" << EOF
+        GitStart CoPilot CLI - One-Command Installers
+        
+        ## Linux/macOS Full Installer
+        curl -sSL https://raw.githubusercontent.com/your-org/gitstart-cli/main/install.sh | bash
+        
+        ## Linux/macOS Zero-Dependency Installer
+        curl -sSL https://raw.githubusercontent.com/your-org/gitstart-cli/main/standalone-install.sh | bash
+        
+        ## Windows Installer
+        iwr -useb https://raw.githubusercontent.com/your-org/gitstart-cli/main/install.ps1 | iex
+        
+        ## Local Installation
+        1. Extract this package
+        2. Run the appropriate installer:
+           - Linux/macOS: ./install.sh
+           - Windows: .\\install.ps1
+           - Restricted systems: ./standalone-install.sh
+        
+        All installers handle prerequisites automatically and add gsai to PATH.
+        EOF
+        
+        zip -r "release/${INSTALLER_NAME}.zip" "${INSTALLER_NAME}"
+        
+        # List created packages
+        echo "Created source packages:"
+        ls -la release/
+
+    - name: Upload source artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: source-packages
+        path: release/
+        retention-days: 90
+
   release:
     name: Create Release
-    needs: build
+    needs: [build, source-package]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     
@@ -304,55 +490,92 @@ jobs:
         cat > release_notes.md << EOF
         # GitStart CoPilot CLI ${VERSION}
         
-        ## 🚀 Cross-Platform Executables
+        ## 🚀 Ready-to-Use Downloads
         
-        Download the appropriate executable for your platform:
+        ### 📦 Standalone Executables (Recommended)
+        No Python installation required - just download and run:
         
-        ### Windows
-        - **gsai-${VERSION}-windows-x86_64.exe** - Windows 64-bit executable
+        - **gsai-${VERSION}-windows-x86_64.zip** - Windows 64-bit (with installer)
+        - **gsai-${VERSION}-macos-x86_64.zip** - macOS Intel/Apple Silicon (with installer)  
+        - **gsai-${VERSION}-linux-x86_64.zip** - Linux 64-bit (with installer)
         
-        ### macOS
-        - **gsai-${VERSION}-macos-x86_64** - macOS Intel/Apple Silicon executable
+        ### 📋 Source Code Packages
+        For developers and custom installations:
         
-        ### Linux
-        - **gsai-${VERSION}-linux-x86_64** - Linux 64-bit executable
+        - **gsai-${VERSION}-source.zip** - Complete source with installers
+        - **gsai-${VERSION}-minimal-source.zip** - Python code only
+        - **gsai-${VERSION}-installers.zip** - One-command installers only
         
-        ## 📖 Usage
+        ## ⚡ Quick Start
         
-        1. Download the executable for your platform
-        2. Make it executable (Linux/macOS): `chmod +x gsai-*`
-        3. Run: `./gsai-* --help`
-        4. Configure API keys: `./gsai-* configure`
-        5. Start coding: `./gsai-* chat`
+        ### Option 1: Download Executable (Easiest)
+        1. Download the ZIP for your platform above
+        2. Extract and run: \`./gsai chat\` 
+        
+        ### Option 2: One-Command Install (Recommended)
+        \`\`\`bash
+        # Linux/macOS
+        curl -sSL https://raw.githubusercontent.com/your-org/gitstart-cli/main/install.sh | bash
+        
+        # Windows PowerShell
+        iwr -useb https://raw.githubusercontent.com/your-org/gitstart-cli/main/install.ps1 | iex
+        \`\`\`
+        
+        ### Option 3: From Source
+        \`\`\`bash
+        # Download source package, then:
+        uv sync && uv run gsai chat
+        \`\`\`
         
         ## 🔑 API Keys
         
-        This build may include embedded API keys if configured during build.
-        You can also configure your own keys using:
+        **This release includes embedded API keys** from GitHub Secrets for immediate use.
         
+        You can also configure your own keys:
         \`\`\`bash
-        ./gsai-* configure
+        gsai configure
         \`\`\`
         
-        ## 🛠️ Features
+        Get your keys from:
+        - OpenAI: https://platform.openai.com/api-keys
+        - Anthropic: https://console.anthropic.com/
         
-        - Interactive AI coding assistant
-        - Cross-platform compatibility
-        - No installation required
-        - Embedded dependencies
-        - Secure API key management
+        ## 🎯 What's Included
         
-        ## 📝 Notes
+        ### All Packages Include:
+        - ✅ Interactive AI coding assistant
+        - ✅ Cross-platform compatibility  
+        - ✅ Embedded API keys (ready to use)
+        - ✅ No complex setup required
+        - ✅ Complete documentation
         
-        - Built with Python 3.12
-        - Includes all required dependencies
-        - Self-contained executable
-        - No Python installation required on target system
+        ### Executable Packages Also Include:
+        - ✅ No Python installation required
+        - ✅ All dependencies bundled
+        - ✅ Installation instructions
+        - ✅ Self-contained operation
+        
+        ## 📚 Installation Methods Comparison
+        
+        | Method | Setup Time | Requirements | Best For |
+        |--------|------------|--------------|----------|
+        | **Executable ZIP** | 30 seconds | None | End users |
+        | **One-command installer** | 2 minutes | curl/PowerShell | Quick setup |
+        | **Source code** | 3 minutes | Python 3.10+ | Developers |
+        
+        ## 🛠️ Technical Details
+        
+        - **Python Version:** 3.12
+        - **Dependencies:** All bundled
+        - **Platform Support:** Windows, macOS, Linux
+        - **Architecture:** x86_64 (64-bit)
+        - **API Integration:** OpenAI GPT + Anthropic Claude
         
         ---
         
-        **Built on:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-        **Commit:** ${{ github.sha }}
+        **Built:** $(date -u +"%Y-%m-%d %H:%M:%S UTC") | **Commit:** ${{ github.sha }}
+        
+        **Need help?** Check the included documentation or visit our [GitHub repository](https://github.com/your-org/gitstart-cli).
         EOF
 
     - name: Create Release

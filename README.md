@@ -45,72 +45,142 @@ An interactive command-line interface that provides an AI coding assistant with 
 
 ## Installation
 
-### One-Click Installer (Recommended)
+### 🚀 Quick Installation (Recommended)
 
-**Linux/macOS:**
-```bash
-# Clone and run installer
-git clone <repository-url>
-cd gitstart-cli
-./install.sh
-```
-
-**Windows:**
-```bat
-REM Clone and run installer
-git clone <repository-url>
-cd gitstart-cli
-install.bat
-```
-
-**Or use the quick installer:**
-```bash
-# One-liner installer (Linux/macOS)
-curl -sSL https://raw.githubusercontent.com/your-repo/gitstart-cli/master/quick-install.sh | bash
-```
-
-The installer will:
-- ✅ Check all prerequisites (Python 3.12+, uv)
-- ✅ Install missing dependencies automatically
-- ✅ Configure API keys securely
-- ✅ Install the CLI globally
-- ✅ Test the installation
-
-### Manual Installation
-
-### Prerequisites
-- Python 3.12+
-- Git (for repository operations)
-- OpenAI API key and/or Anthropic API key
-
-### Install with uv (Manual)
+**Download Pre-built Executables:**
+- **Linux/macOS**: No Python required - just download and run!
+- **Windows**: Self-contained `.exe` file
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd gitstart-cli
+# Linux/macOS one-liner
+curl -L -o gsai https://github.com/your-org/gitstart-cli/releases/latest/download/gsai-$(uname -s | tr '[:upper:]' '[:lower:]')-x86_64
+chmod +x gsai && sudo mv gsai /usr/local/bin/
 
-# Install with uv
-uv sync
-
-# Install the CLI globally
-uv tool install .
+# Verify installation
+gsai --version
 ```
 
-### Install with pip
+**From Releases Page:**
+1. Go to [Releases](../../releases)
+2. Download for your platform:
+   - `gsai-linux-x86_64` (Linux)
+   - `gsai-macos-x86_64` (macOS)  
+   - `gsai-windows-x86_64.exe` (Windows)
+3. Make executable and add to PATH
+
+### 📖 Platform-Specific Installation Guides
+
+For detailed installation instructions:
+
+- **[Linux Installation Guide](docs/installation-linux.md)** - Ubuntu, Debian, CentOS, Arch, etc.
+- **[macOS Installation Guide](docs/installation-macos.md)** - Homebrew, manual installation, Apple Silicon
+- **[Windows Installation Guide](docs/installation-windows.md)** - PowerShell, package managers, troubleshooting
+
+### 🛠️ Install from Source
+
+**Prerequisites:** Python 3.12+, Git
 
 ```bash
-# Clone the repository
-git clone <repository-url>
+# Clone repository
+git clone https://github.com/your-org/gitstart-cli.git
 cd gitstart-cli
 
-# Install dependencies
+# Install with uv (recommended)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync && uv tool install .
+
+# Or with pip
 pip install -e .
 ```
 
-## Getting Started
+### 📦 Package Managers
 
-### 1. Initial Setup
+```bash
+# Homebrew (macOS/Linux)
+brew install gitstart/cli/gsai
+
+# More package managers in platform guides
+```
+
+## 📚 Documentation
+
+### 🎯 Quick Links
+
+- **[📖 Complete Documentation](docs/README.md)** - Full documentation index
+- **[⚡ Quick Start Guide](docs/quick-start.md)** - Get up and running in 5 minutes
+- **[⚙️ Configuration Guide](docs/configuration.md)** - API keys, settings, and customization
+- **[🛠️ CLI Reference](docs/cli-reference.md)** - Complete command reference
+- **[❓ FAQ](docs/faq.md)** - Frequently asked questions
+- **[🚨 Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+
+### 🚀 Getting Started
+
+**New to GitStart CoPilot CLI?** Start here:
+
+1. **[Install](docs/installation.md)** for your platform (Linux/macOS/Windows)
+2. **[Quick Start](docs/quick-start.md)** - 5-minute setup guide
+3. **[Configuration](docs/configuration.md)** - Set up API keys and preferences
+4. **[Examples](docs/examples.md)** - See it in action
+
+### 📖 Full Documentation
+
+Visit the **[docs/](docs/)** directory for complete guides:
+
+**Getting Started:**
+- [Installation Guide](docs/installation.md) - All installation methods
+- [Quick Start](docs/quick-start.md) - Get running in 5 minutes  
+- [Configuration](docs/configuration.md) - API keys and settings
+
+**Platform Guides:**
+- [Linux Installation](docs/installation-linux.md) - Ubuntu, Debian, CentOS, Arch
+- [macOS Installation](docs/installation-macos.md) - Homebrew, Apple Silicon
+- [Windows Installation](docs/installation-windows.md) - PowerShell, package managers
+
+**Usage & Reference:**
+- [Basic Usage](docs/usage.md) - Essential commands and workflows
+- [CLI Reference](docs/cli-reference.md) - Complete command reference
+- [Advanced Features](docs/advanced-features.md) - Power user features
+- [Examples](docs/examples.md) - Real-world usage examples
+
+**Help & Support:**
+- [FAQ](docs/faq.md) - Frequently asked questions
+- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
+
+## ⚡ Quick Start
+
+### 1. Install and Configure
+
+```bash
+# Download and install (Linux/macOS)
+curl -L -o gsai https://github.com/your-org/gitstart-cli/releases/latest/download/gsai-$(uname -s | tr '[:upper:]' '[:lower:]')-x86_64
+chmod +x gsai && sudo mv gsai /usr/local/bin/
+
+# Configure API keys
+gsai configure
+```
+
+### 2. Start Coding with AI
+
+```bash
+# Navigate to your project
+cd your-project
+
+# Start AI coding session
+gsai chat
+```
+
+**That's it!** You're now ready to code with AI assistance.
+
+### 3. Try These Commands
+
+```bash
+You: What does this project do? Give me an overview.
+You: Add error handling to the login function in auth.py
+You: Create a Python function to validate email addresses
+You: Review my recent changes and suggest improvements
+```
+
+## 📋 Initial Setup Details
 
 After installation, gsai uses a global configuration system that stores your settings in `~/.ai/gsai/.env`. This means you only need to configure your API keys once, and they'll work across all your projects.
 

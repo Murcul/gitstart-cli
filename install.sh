@@ -2,7 +2,7 @@
 
 # GitStart CoPilot CLI - Universal Installer
 # One-command installation script that handles everything
-# Usage: curl -sSL https://raw.githubusercontent.com/your-org/gitstart-cli/main/install.sh | bash
+# Usage: curl -sSL https://raw.githubusercontent.com/Murcul/gitstart-cli/main/install.sh | bash
 
 set -e  # Exit on any error
 
@@ -17,8 +17,8 @@ WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
 # Configuration
-REPO_URL="https://github.com/your-org/gitstart-cli"
-ARCHIVE_URL="https://github.com/your-org/gitstart-cli/archive/refs/heads/main.zip"
+REPO_URL="https://github.com/Murcul/gitstart-cli"
+ARCHIVE_URL="https://github.com/Murcul/gitstart-cli/archive/refs/heads/main.zip"
 TEMP_DIR="/tmp/gsai-install-$$"
 APP_NAME="gsai"
 PYTHON_MIN_VERSION="3.10"  # Relaxed for wider compatibility

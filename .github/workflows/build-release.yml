@@ -125,6 +125,8 @@ jobs:
                 'gsai.agents.prompts.templates',
                 'gsai.build_config',
                 'gsai.crypto_utils',
+                'gsai.embedded_keys',
+                'gsai.key_resolver',
                 'tree_sitter',
                 'tree_sitter_language_pack',
                 'pydantic_ai',

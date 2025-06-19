@@ -1,13 +1,10 @@
+# Import embedded keys using lightweight module to avoid dependency issues
 try:
-    from gsai.build_config import EMBEDDED_OPENAI_API_KEY, EMBEDDED_ANTHROPIC_API_KEY
-    from gsai.crypto_utils import get_decrypted_key
-    
-    # Decrypt embedded keys if they exist
-    DECRYPTED_OPENAI_KEY = get_decrypted_key(EMBEDDED_OPENAI_API_KEY) if EMBEDDED_OPENAI_API_KEY else ''
-    DECRYPTED_ANTHROPIC_KEY = get_decrypted_key(EMBEDDED_ANTHROPIC_API_KEY) if EMBEDDED_ANTHROPIC_API_KEY else ''
+    from gsai.embedded_keys import get_api_keys
+    _api_keys = get_api_keys()
+    DECRYPTED_OPENAI_KEY = _api_keys['openai']
+    DECRYPTED_ANTHROPIC_KEY = _api_keys['anthropic']
 except ImportError:
-    EMBEDDED_OPENAI_API_KEY = ''
-    EMBEDDED_ANTHROPIC_API_KEY = ''
     DECRYPTED_OPENAI_KEY = ''
     DECRYPTED_ANTHROPIC_KEY = ''
 

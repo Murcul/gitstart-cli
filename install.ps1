@@ -1,6 +1,6 @@
 # GitStart CoPilot CLI - Universal Windows Installer
 # One-command installation script that handles everything
-# Usage: iwr -useb https://raw.githubusercontent.com/your-org/gitstart-cli/main/install.ps1 | iex
+# Usage: iwr -useb https://raw.githubusercontent.com/Murcul/gitstart-cli/main/install.ps1 | iex
 
 param(
     [string]$InstallDir = "",
@@ -9,8 +9,8 @@ param(
 )
 
 # Configuration
-$RepoUrl = "https://github.com/your-org/gitstart-cli"
-$ArchiveUrl = "https://github.com/your-org/gitstart-cli/archive/refs/heads/main.zip"
+$RepoUrl = "https://github.com/Murcul/gitstart-cli"
+$ArchiveUrl = "https://github.com/Murcul/gitstart-cli/archive/refs/heads/main.zip"
 $TempDir = "$env:TEMP\gsai-install-$(Get-Random)"
 $AppName = "gsai"
 

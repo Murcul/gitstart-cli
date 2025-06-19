@@ -346,7 +346,7 @@ jobs:
         cp standalone-install.sh "${SOURCE_NAME}/"
         
         # Create source installation guide
-        cat > "${SOURCE_NAME}/INSTALL-FROM-SOURCE.txt" << EOF
+        cat > "${SOURCE_NAME}/INSTALL-FROM-SOURCE.txt" << 'SOURCE_EOF'
         GitStart CoPilot CLI - Source Installation Guide
         
         ## Method 1: Quick Install with uv (Recommended)
@@ -374,8 +374,8 @@ jobs:
         1. Set API keys: gsai configure
         2. Check status: gsai status
         
-        For more help: https://github.com/your-org/gitstart-cli
-        EOF
+        For more help: https://github.com/Murcul/gitstart-cli
+        SOURCE_EOF
         
         # Create ZIP of source
         zip -r "release/${SOURCE_NAME}.zip" "${SOURCE_NAME}"
@@ -390,7 +390,7 @@ jobs:
         cp README.md "${MINIMAL_NAME}/" 2>/dev/null || echo "# GitStart CoPilot CLI" > "${MINIMAL_NAME}/README.md"
         
         # Create minimal install guide
-        cat > "${MINIMAL_NAME}/INSTALL.txt" << EOF
+        cat > "${MINIMAL_NAME}/INSTALL.txt" << 'MINIMAL_EOF'
         GitStart CoPilot CLI - Minimal Source Package
         
         Requirements: Python 3.10+, uv package manager
@@ -403,7 +403,7 @@ jobs:
         Alternative:
         1. pip install -e .
         2. gsai chat
-        EOF
+        MINIMAL_EOF
         
         # Create ZIP of minimal source
         zip -r "release/${MINIMAL_NAME}.zip" "${MINIMAL_NAME}"
@@ -417,17 +417,17 @@ jobs:
         cp standalone-install.sh "${INSTALLER_NAME}/"
         cp -r docs "${INSTALLER_NAME}/" 2>/dev/null || mkdir "${INSTALLER_NAME}/docs"
         
-        cat > "${INSTALLER_NAME}/README.txt" << EOF
+        cat > "${INSTALLER_NAME}/README.txt" << 'INSTALLER_EOF'
         GitStart CoPilot CLI - One-Command Installers
         
         ## Linux/macOS Full Installer
-        curl -sSL https://raw.githubusercontent.com/your-org/gitstart-cli/main/install.sh | bash
+        curl -sSL https://github.com/Murcul/gitstart-cli/releases/latest/download/install.sh | bash
         
         ## Linux/macOS Zero-Dependency Installer
-        curl -sSL https://raw.githubusercontent.com/your-org/gitstart-cli/main/standalone-install.sh | bash
+        curl -sSL https://github.com/Murcul/gitstart-cli/releases/latest/download/standalone-install.sh | bash
         
         ## Windows Installer
-        iwr -useb https://raw.githubusercontent.com/your-org/gitstart-cli/main/install.ps1 | iex
+        iwr -useb https://github.com/Murcul/gitstart-cli/releases/latest/download/install.ps1 | iex
         
         ## Local Installation
         1. Extract this package
@@ -437,7 +437,7 @@ jobs:
            - Restricted systems: ./standalone-install.sh
         
         All installers handle prerequisites automatically and add gsai to PATH.
-        EOF
+        INSTALLER_EOF
         
         zip -r "release/${INSTALLER_NAME}.zip" "${INSTALLER_NAME}"
         
@@ -492,83 +492,82 @@ jobs:
         if [ -f ../standalone-install.sh ]; then cp ../standalone-install.sh release/; fi
         
         # Create a direct download script for users
-        cat > release/quick-install.sh << 'EOF'
-#!/bin/bash
-# GitStart CoPilot CLI - Quick Installer
-# This script downloads and runs the appropriate installer for your platform
-
-set -e
-
-VERSION="$1"
-if [ -z "$VERSION" ]; then
-    echo "Usage: $0 <version>"
-    echo "Example: $0 v1.0.0"
-    exit 1
-fi
-
-REPO="Murcul/gitstart-cli"
-BASE_URL="https://github.com/$REPO/releases/download/$VERSION"
-
-case "$(uname -s)" in
-    Linux|Darwin)
-        echo "Downloading Linux/macOS installer..."
-        curl -sSL "$BASE_URL/install.sh" | bash
-        ;;
-    MINGW*|CYGWIN*|MSYS*)
-        echo "Please run this command in PowerShell:"
-        echo "iwr -useb '$BASE_URL/install.ps1' | iex"
-        ;;
-    *)
-        echo "Unsupported platform: $(uname -s)"
-        echo "Please download manually from: https://github.com/$REPO/releases/tag/$VERSION"
-        exit 1
-        ;;
-esac
-EOF
+        cat > release/quick-install.sh << 'QUICK_EOF'
+        #!/bin/bash
+        # GitStart CoPilot CLI - Quick Installer
+        # This script downloads and runs the appropriate installer for your platform
+        
+        set -e
+        
+        VERSION="$1"
+        if [ -z "$VERSION" ]; then
+            echo "Usage: $0 <version>"
+            echo "Example: $0 v1.0.0"
+            exit 1
+        fi
+        
+        REPO="Murcul/gitstart-cli"
+        BASE_URL="https://github.com/$REPO/releases/download/$VERSION"
+        
+        case "$(uname -s)" in
+            Linux|Darwin)
+                echo "Downloading Linux/macOS installer..."
+                curl -sSL "$BASE_URL/install.sh" | bash
+                ;;
+            MINGW*|CYGWIN*|MSYS*)
+                echo "Please run this command in PowerShell:"
+                echo "iwr -useb '$BASE_URL/install.ps1' | iex"
+                ;;
+            *)
+                echo "Unsupported platform: $(uname -s)"
+                echo "Please download manually from: https://github.com/$REPO/releases/tag/$VERSION"
+                exit 1
+                ;;
+        esac
+        QUICK_EOF
         chmod +x release/quick-install.sh
         
         # Create installation instructions
-        cat > release/INSTALL.md << EOF
-# GitStart CoPilot CLI Installation
-
-## 🚀 One-Command Installation
-
-### Windows
-\`\`\`powershell
-iwr -useb https://github.com/Murcul/gitstart-cli/releases/download/${VERSION}/install.ps1 | iex
-\`\`\`
-
-### Linux/macOS
-\`\`\`bash
-curl -sSL https://github.com/Murcul/gitstart-cli/releases/download/${VERSION}/install.sh | bash
-\`\`\`
-
-### Zero-Dependency Installer
-\`\`\`bash
-curl -sSL https://github.com/Murcul/gitstart-cli/releases/download/${VERSION}/standalone-install.sh | bash
-\`\`\`
-
-## 📦 Direct Download
-
-Download the appropriate executable for your platform:
-- **Windows**: gsai-${VERSION}-windows-x86_64.zip
-- **macOS**: gsai-${VERSION}-macos-x86_64.zip
-- **Linux**: gsai-${VERSION}-linux-x86_64.zip
-
-Extract and run directly - no installation required!
-
-## 📋 What's Included
-
-- Cross-platform executables with embedded dependencies
-- One-command installers for system-wide installation
-- Source code packages for developers
-- Complete documentation and usage guides
-
----
-
-**Built on:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-**Repository:** https://github.com/Murcul/gitstart-cli (private)
-EOF
+        cat > release/INSTALL.md << 'INSTALL_EOF'
+        # GitStart CoPilot CLI Installation
+        
+        ## 🚀 One-Command Installation
+        
+        ### Windows
+        ```powershell
+        iwr -useb https://github.com/Murcul/gitstart-cli/releases/download/${VERSION}/install.ps1 | iex
+        ```
+        
+        ### Linux/macOS
+        ```bash
+        curl -sSL https://github.com/Murcul/gitstart-cli/releases/download/${VERSION}/install.sh | bash
+        ```
+        
+        ### Zero-Dependency Installer
+        ```bash
+        curl -sSL https://github.com/Murcul/gitstart-cli/releases/download/${VERSION}/standalone-install.sh | bash
+        ```
+        
+        ## 📦 Direct Download
+        
+        Download the appropriate executable for your platform:
+        - **Windows**: gsai-${VERSION}-windows-x86_64.zip
+        - **macOS**: gsai-${VERSION}-macos-x86_64.zip
+        - **Linux**: gsai-${VERSION}-linux-x86_64.zip
+        
+        Extract and run directly - no installation required!
+        
+        ## 📋 What's Included
+        
+        - Cross-platform executables with embedded dependencies
+        - One-command installers for system-wide installation
+        - Source code packages for developers
+        - Complete documentation and usage guides
+        
+        ---
+        
+        **Repository:** https://github.com/Murcul/gitstart-cli (private)
+        INSTALL_EOF
         
         # List all files
         echo "Release files:"
@@ -576,7 +575,7 @@ EOF
 
     - name: Generate release notes
       run: |
-        cat > release_notes.md << EOF
+        cat > release_notes.md << 'NOTES_EOF'
         # GitStart CoPilot CLI ${VERSION}
         
         ## 🚀 Ready-to-Use Downloads
@@ -667,8 +666,8 @@ EOF
         
         **Built:** $(date -u +"%Y-%m-%d %H:%M:%S UTC") | **Commit:** ${{ github.sha }}
         
-        **Need help?** Check the included documentation or visit our [GitHub repository](https://github.com/your-org/gitstart-cli).
-        EOF
+        **Need help?** Check the included documentation or visit our [GitHub repository](https://github.com/Murcul/gitstart-cli).
+        NOTES_EOF
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
@@ -705,7 +704,7 @@ EOF
         
     - name: Create Public Installation Guide
       run: |
-        cat > public-install-guide.md << EOF
+        cat > public-install-guide.md << 'GUIDE_EOF'
         # GitStart CoPilot CLI - Public Installation Guide
         
         **Version:** ${{ env.VERSION }}
@@ -753,7 +752,7 @@ EOF
         
         **Built:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
         **Commit:** ${{ github.sha }}
-        EOF
+        GUIDE_EOF
         
         # Upload as release asset
         gh release upload ${{ env.VERSION }} public-install-guide.md --clobber

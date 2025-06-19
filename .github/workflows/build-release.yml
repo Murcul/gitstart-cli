@@ -487,9 +487,9 @@ jobs:
         done
         
         # Copy installer scripts to release
-        if [ -f ../install.sh ]; then cp ../install.sh release/; fi
-        if [ -f ../install.ps1 ]; then cp ../install.ps1 release/; fi
-        if [ -f ../standalone-install.sh ]; then cp ../standalone-install.sh release/; fi
+        if [ -f install.sh ]; then cp install.sh release/; fi
+        if [ -f install.ps1 ]; then cp install.ps1 release/; fi
+        if [ -f standalone-install.sh ]; then cp standalone-install.sh release/; fi
         
         # Create a direct download script for users
         cat > release/quick-install.sh << 'QUICK_EOF'
@@ -669,6 +669,23 @@ jobs:
         **Need help?** Check the included documentation or visit our [GitHub repository](https://github.com/Murcul/gitstart-cli).
         NOTES_EOF
 
+    - name: Delete existing release if it exists
+      run: |
+        # Delete existing release and tag if they exist
+        if gh release view ${{ env.VERSION }} >/dev/null 2>&1; then
+          echo "Deleting existing release ${{ env.VERSION }}"
+          gh release delete ${{ env.VERSION }} --yes
+        fi
+        
+        # Delete tag if it exists
+        if git tag -l | grep -q "^${{ env.VERSION }}$"; then
+          echo "Deleting existing tag ${{ env.VERSION }}"
+          git tag -d ${{ env.VERSION }} || true
+          git push origin :refs/tags/${{ env.VERSION }} || true
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
@@ -679,7 +696,6 @@ jobs:
         draft: false
         prerelease: ${{ contains(env.VERSION, 'alpha') || contains(env.VERSION, 'beta') || contains(env.VERSION, 'rc') }}
         generate_release_notes: true
-        make_latest: true
         discussion_category_name: "Releases"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

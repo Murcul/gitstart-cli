@@ -33,6 +33,7 @@ COMMANDS:
     manual-build [VERSION] [PUBLIC]    Trigger manual workflow dispatch
     check-status                       Check GitHub Actions status
     list-releases                      List existing releases
+    clean-release [VERSION]            Delete existing release and tag
     help                              Show this help
 
 EXAMPLES:
@@ -47,6 +48,9 @@ EXAMPLES:
 
     # Check current workflow status
     ./trigger-release.sh check-status
+
+    # Clean up existing release (useful for fixing failed releases)
+    ./trigger-release.sh clean-release v1.0.0
 
 REQUIREMENTS:
     - gh CLI tool installed and authenticated
@@ -219,6 +223,40 @@ list_releases() {
     echo "Use 'gh release view [TAG]' to see release details"
 }
 
+clean_release() {
+    local version="$1"
+    
+    if [ -z "$version" ]; then
+        echo -e "${RED}❌ Version required${NC}"
+        echo "Usage: ./trigger-release.sh clean-release v1.0.0"
+        exit 1
+    fi
+    
+    echo -e "${YELLOW}🧹 Cleaning release: $version${NC}"
+    
+    # Delete release if it exists
+    if gh release view "$version" >/dev/null 2>&1; then
+        echo -e "${BLUE}Deleting existing release...${NC}"
+        gh release delete "$version" --yes
+        echo -e "${GREEN}✅ Release deleted${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Release $version does not exist${NC}"
+    fi
+    
+    # Delete tag if it exists
+    if git tag -l | grep -q "^$version$"; then
+        echo -e "${BLUE}Deleting existing tag...${NC}"
+        git tag -d "$version" 2>/dev/null || true
+        git push origin ":refs/tags/$version" 2>/dev/null || true
+        echo -e "${GREEN}✅ Tag deleted${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Tag $version does not exist${NC}"
+    fi
+    
+    echo -e "${GREEN}🎉 Cleanup complete for $version${NC}"
+    echo "You can now create a new release with this version."
+}
+
 show_urls() {
     local repo_url
     repo_url=$(gh repo view --json url --jq .url)
@@ -251,6 +289,10 @@ main() {
         list-releases)
             check_requirements
             list_releases
+            ;;
+        clean-release)
+            check_requirements
+            clean_release "$2"
             ;;
         help|--help|-h)
             show_help

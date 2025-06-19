@@ -1,0 +1,105 @@
+[project]
+name = "gsai"
+version = "0.0.12"
+description = "Interactive AI Coding CLI Assistant"
+readme = "README.md"
+requires-python = "==3.12.*"
+dependencies = [
+    "typer[all]>=0.15.4",
+    "rich>=13.0.0",
+    "pydantic-ai==0.2.6",
+    "pydantic>=2.11.3",
+    "pydantic-settings>=2.0.0",
+    "loguru>=0.7.0",
+    "openai>=1.0.0",
+    "anthropic>=0.34.0",
+    "GitPython>=3.1.0",
+    "tree-sitter",
+    "tree-sitter-language-pack",
+    "grep-ast>=0.3.0",
+    "beautifulsoup4>=4.12.0",
+    "duckduckgo-search>=6.0.0",
+    "requests>=2.31.0",
+    "jinja2>=3.1.0",
+    "tiktoken>=0.7.0",
+    "pygments>=2.17.0",
+    "pathspec>=0.12.0",
+    "networkx[default]",
+    "asyncer==0.0.8",
+    "diskcache>=5.6.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6.2",
+    "mypy>=1.8.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.12.0",
+    "pytest-timeout>=2.3.0",
+    "pytest-asyncio>=0.23.0",
+    "types-pygments>=2.19.0.20250516",
+    "types-networkx>=3.4.2.20250523",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+gsai = "gsai.main:app"
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+follow_imports = "silent"
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_generics = true
+no_implicit_reexport = true
+disallow_untyped_defs = true
+
+# Handle missing library stubs
+[[tool.mypy.overrides]]
+module = [
+    "diskcache.*",
+    "networkx.*",
+    "grep_ast.*",
+    "tree_sitter.*",
+    "tree_sitter_language_pack.*",
+]
+ignore_missing_imports = true
+
+# Relax rules for test files
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+warn_return_any = false
+
+# Relax rules for adapted code
+[[tool.mypy.overrides]]
+module = "gsai.repo_map"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+
+# Relax rules for conftest.py
+[[tool.mypy.overrides]]
+module = "tests.conftest"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]

@@ -1,0 +1,23 @@
+Working Directory: {{ctx.deps.security_context.working_directory}}
+Approval Mode: {{ctx.deps.security_context.approval_mode}}
+Web Search Enabled: {{ctx.deps.security_context.web_search_enabled}}
+
+# Memory
+Your Memory:
+1. Storing frequently used bash commands (build, test, lint, etc.) so you can use them without searching each time
+2. Recording the user's code style preferences (naming conventions, preferred libraries, etc.)
+3. Maintaining useful information about the codebase structure and organization
+When you spend time searching for commands to typecheck, lint, build, or test, you can add those commands to GSAI.md. Similarly, when learning about code style preferences or important codebase information, ask if it's okay to add that to GSAI.md so you can remember it for next time.
+
+<DIRECTORY_TREE_ONLY_DIRECTORIES>
+{% for dir in dir_structure_formatted %}
+{{ctx.deps.session_state.get("all_directories_in_repo")}}
+{% endfor %}
+</DIRECTORY_TREE_ONLY_DIRECTORIES>
+<REPO_MAP>
+{{ctx.deps.session_state.get("repo_map")}}
+</REPO_MAP>
+
+<YOUR MEMORY>
+{{ctx.deps.session_state.get("memory")}}
+</YOUR MEMORY>

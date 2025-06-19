@@ -1,8 +1,15 @@
 try:
     from gsai.build_config import EMBEDDED_OPENAI_API_KEY, EMBEDDED_ANTHROPIC_API_KEY
+    from gsai.crypto_utils import get_decrypted_key
+    
+    # Decrypt embedded keys if they exist
+    DECRYPTED_OPENAI_KEY = get_decrypted_key(EMBEDDED_OPENAI_API_KEY) if EMBEDDED_OPENAI_API_KEY else ''
+    DECRYPTED_ANTHROPIC_KEY = get_decrypted_key(EMBEDDED_ANTHROPIC_API_KEY) if EMBEDDED_ANTHROPIC_API_KEY else ''
 except ImportError:
     EMBEDDED_OPENAI_API_KEY = ''
     EMBEDDED_ANTHROPIC_API_KEY = ''
+    DECRYPTED_OPENAI_KEY = ''
+    DECRYPTED_ANTHROPIC_KEY = ''
 
 """CLI-specific configuration extending base settings."""
 
@@ -12,7 +19,15 @@ import pathlib
 import shutil
 import stat
 import sys
-from enum import StrEnum, auto
+from enum import auto
+
+# Handle StrEnum compatibility for Python < 3.11
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    from enum import Enum
+    class StrEnum(str, Enum):
+        pass
 from typing import TYPE_CHECKING, Literal, TypedDict
 
 import httpx
@@ -408,8 +423,8 @@ class Settings(BaseSettings):
     )
 
     # Model Keys
-    OPENAI_API_KEY: str = Field(default=EMBEDDED_OPENAI_API_KEY or "", description="OpenAI API Key")
-    ANTHROPIC_API_KEY: str = Field(default=EMBEDDED_ANTHROPIC_API_KEY or "", description="Anthropic API Key")
+    OPENAI_API_KEY: str = Field(default=DECRYPTED_OPENAI_KEY or "", description="OpenAI API Key")
+    ANTHROPIC_API_KEY: str = Field(default=DECRYPTED_ANTHROPIC_KEY or "", description="Anthropic API Key")
 
     # Where all repos should be stored
     REPOS_PATH: str = Field(

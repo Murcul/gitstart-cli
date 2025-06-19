@@ -448,8 +448,8 @@ Ready to assist with your coding tasks!
         if not has_openai and not has_anthropic:
             # Check if this is a development environment or production build
             try:
-                from gsai.build_config import EMBEDDED_OPENAI_API_KEY, EMBEDDED_ANTHROPIC_API_KEY
-                is_built_version = bool(EMBEDDED_OPENAI_API_KEY or EMBEDDED_ANTHROPIC_API_KEY)
+                from gsai.build_config import EMBEDDED_OPENAI_API_KEY, EMBEDDED_ANTHROPIC_API_KEY, BUILD_TYPE
+                is_built_version = bool(EMBEDDED_OPENAI_API_KEY or EMBEDDED_ANTHROPIC_API_KEY) or BUILD_TYPE == "production"
             except ImportError:
                 is_built_version = False
             

@@ -406,10 +406,15 @@ def cache_clear(
 def status() -> None:
     """Show configuration and API key status."""
     try:
-        from gsai.build_config import EMBEDDED_OPENAI_API_KEY, EMBEDDED_ANTHROPIC_API_KEY
+        from gsai.build_config import EMBEDDED_OPENAI_API_KEY, EMBEDDED_ANTHROPIC_API_KEY, BUILD_TYPE
+        from gsai.crypto_utils import is_encrypted_key
         has_embedded_keys = bool(EMBEDDED_OPENAI_API_KEY or EMBEDDED_ANTHROPIC_API_KEY)
+        is_production_build = BUILD_TYPE == "production"
+        has_encrypted_keys = is_encrypted_key(EMBEDDED_OPENAI_API_KEY) or is_encrypted_key(EMBEDDED_ANTHROPIC_API_KEY)
     except ImportError:
         has_embedded_keys = False
+        is_production_build = False
+        has_encrypted_keys = False
         EMBEDDED_OPENAI_API_KEY = ""
         EMBEDDED_ANTHROPIC_API_KEY = ""
     
@@ -427,18 +432,32 @@ def status() -> None:
     table.add_row("Version", get_version(), "GitStart AI CLI")
     
     # Build type
-    build_type = "Production (GitHub Actions)" if has_embedded_keys else "Development/Local"
-    table.add_row("Build Type", build_type, "")
+    if is_production_build:
+        build_type = "Production (GitHub Actions)"
+        if has_encrypted_keys:
+            build_detail = "Encrypted keys embedded"
+        else:
+            build_detail = "Plain keys embedded"
+    else:
+        build_type = "Development/Local"
+        build_detail = "No embedded keys"
+    table.add_row("Build Type", build_type, build_detail)
     
     # API Keys
     if has_openai:
-        openai_source = "Embedded" if EMBEDDED_OPENAI_API_KEY else "User Configured"
+        if EMBEDDED_OPENAI_API_KEY:
+            openai_source = "Embedded (Encrypted)" if is_encrypted_key(EMBEDDED_OPENAI_API_KEY) else "Embedded (Plain)"
+        else:
+            openai_source = "User Configured"
         table.add_row("OpenAI API", "✓ Configured", openai_source)
     else:
         table.add_row("OpenAI API", "✗ Not Set", "Configure with 'gsai configure'")
     
     if has_anthropic:
-        anthropic_source = "Embedded" if EMBEDDED_ANTHROPIC_API_KEY else "User Configured"
+        if EMBEDDED_ANTHROPIC_API_KEY:
+            anthropic_source = "Embedded (Encrypted)" if is_encrypted_key(EMBEDDED_ANTHROPIC_API_KEY) else "Embedded (Plain)"
+        else:
+            anthropic_source = "User Configured"
         table.add_row("Anthropic API", "✓ Configured", anthropic_source)
     else:
         table.add_row("Anthropic API", "✗ Not Set", "Configure with 'gsai configure'")

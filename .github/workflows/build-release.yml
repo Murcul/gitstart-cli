@@ -68,23 +68,17 @@ jobs:
       run: |
         uv sync --dev
 
-    - name: Create build config
+    - name: Create build config with encrypted keys
       shell: bash
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || github.event.inputs.openai_key || '' }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || github.event.inputs.anthropic_key || '' }}
       run: |
-        # Create build config with embedded API keys from secrets or inputs
-        OPENAI_KEY="${{ secrets.OPENAI_API_KEY || github.event.inputs.openai_key || '' }}"
-        ANTHROPIC_KEY="${{ secrets.ANTHROPIC_API_KEY || github.event.inputs.anthropic_key || '' }}"
+        # Install cryptography for key encryption
+        uv add cryptography
         
-        mkdir -p gsai
-        cat > gsai/build_config.py << EOF
-        """
-        Build-time configuration with embedded API keys.
-        This file is generated during build and should not be committed.
-        """
-        
-        EMBEDDED_OPENAI_API_KEY = "${OPENAI_KEY}"
-        EMBEDDED_ANTHROPIC_API_KEY = "${ANTHROPIC_KEY}"
-        EOF
+        # Run the build script to embed encrypted keys
+        uv run python scripts/build_with_keys.py
 
     - name: Modify config for build
       shell: bash

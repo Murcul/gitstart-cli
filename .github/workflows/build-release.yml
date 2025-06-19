@@ -9,7 +9,7 @@ on:
       version:
         description: 'Release version'
         required: true
-        default: 'v0.0.1'
+        default: 'v1.0.0'
       make_public:
         description: 'Make release public (even from private repo)'
         type: boolean
@@ -501,7 +501,7 @@ jobs:
             exit 1
         fi
         
-        REPO="Murcul/gitstart-cli"
+        REPO="YOUR-ORG/gitstart-cli"
         BASE_URL="https://github.com/$REPO/releases/download/$VERSION"
         
         case "$(uname -s)" in
@@ -561,7 +561,7 @@ jobs:
         
         ---
         
-        **Repository:** https://github.com/Murcul/gitstart-cli (private)
+        **Repository:** https://github.com/YOUR-ORG/gitstart-cli
         INSTALL_EOF
         
         # List all files
@@ -738,7 +738,7 @@ jobs:
         # GitStart CoPilot CLI - Public Installation Guide
         
         **Version:** ${{ env.VERSION }}
-        **Repository:** https://github.com/Murcul/gitstart-cli (private)
+        **Repository:** https://github.com/YOUR-ORG/gitstart-cli
         **Public Release:** https://github.com/Murcul/gitstart-cli/releases/tag/${{ env.VERSION }}
         
         ## 🚀 Installation Commands (Public URLs)

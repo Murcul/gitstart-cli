@@ -1,6 +1,6 @@
 [project]
 name = "gsai"
-version = "0.0.12"
+version = "1.0.0"
 description = "Interactive AI Coding CLI Assistant"
 readme = "README.md"
 requires-python = "==3.12.*"

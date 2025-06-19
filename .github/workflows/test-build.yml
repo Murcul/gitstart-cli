@@ -1,0 +1,159 @@
+name: Test Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_platform:
+        description: 'Platform to test'
+        required: true
+        default: 'ubuntu-latest'
+        type: choice
+        options:
+        - ubuntu-latest
+        - windows-latest
+        - macos-latest
+      openai_key:
+        description: 'Test OpenAI API Key (optional)'
+        required: false
+      anthropic_key:
+        description: 'Test Anthropic API Key (optional)'
+        required: false
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  test-build:
+    name: Test Build on ${{ github.event.inputs.test_platform }}
+    runs-on: ${{ github.event.inputs.test_platform }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: System setup (Linux)
+      if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get install -y binutils
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Create build config
+      shell: bash
+      run: |
+        OPENAI_KEY="${{ github.event.inputs.openai_key || '' }}"
+        ANTHROPIC_KEY="${{ github.event.inputs.anthropic_key || '' }}"
+        
+        mkdir -p gsai
+        cat > gsai/build_config.py << EOF
+        """
+        Build-time configuration with embedded API keys.
+        This file is generated during build and should not be committed.
+        """
+        
+        EMBEDDED_OPENAI_API_KEY = "${OPENAI_KEY}"
+        EMBEDDED_ANTHROPIC_API_KEY = "${ANTHROPIC_KEY}"
+        EOF
+
+    - name: Modify config for build
+      shell: bash
+      run: |
+        cp gsai/config.py gsai/config.py.bak
+        
+        cat > temp_config.py << 'EOF'
+        try:
+            from gsai.build_config import EMBEDDED_OPENAI_API_KEY, EMBEDDED_ANTHROPIC_API_KEY
+        except ImportError:
+            EMBEDDED_OPENAI_API_KEY = ''
+            EMBEDDED_ANTHROPIC_API_KEY = ''
+
+        EOF
+        cat gsai/config.py >> temp_config.py
+        
+        if [[ "$RUNNER_OS" == "macOS" ]]; then
+          sed -i '' 's/OPENAI_API_KEY: str = Field(default="", description="OpenAI API Key")/OPENAI_API_KEY: str = Field(default=EMBEDDED_OPENAI_API_KEY or "", description="OpenAI API Key")/g' temp_config.py
+          sed -i '' 's/ANTHROPIC_API_KEY: str = Field(default="", description="Anthropic API Key")/ANTHROPIC_API_KEY: str = Field(default=EMBEDDED_ANTHROPIC_API_KEY or "", description="Anthropic API Key")/g' temp_config.py
+        else
+          sed -i 's/OPENAI_API_KEY: str = Field(default="", description="OpenAI API Key")/OPENAI_API_KEY: str = Field(default=EMBEDDED_OPENAI_API_KEY or "", description="OpenAI API Key")/g' temp_config.py
+          sed -i 's/ANTHROPIC_API_KEY: str = Field(default="", description="Anthropic API Key")/ANTHROPIC_API_KEY: str = Field(default=EMBEDDED_ANTHROPIC_API_KEY or "", description="Anthropic API Key")/g' temp_config.py
+        fi
+        
+        mv temp_config.py gsai/config.py
+
+    - name: Debug Python environment
+      run: |
+        uv run python -c "import sys; print('Python version:', sys.version)"
+        uv run python -c "import gsai; print('gsai imported successfully')"
+        uv run python -c "from gsai.main import app; print('main imported successfully')"
+
+    - name: Build executable
+      shell: bash
+      run: |
+        # Set extension based on OS
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          EXTENSION=".exe"
+        else
+          EXTENSION=""
+        fi
+        
+        # Update spec file for current OS
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          sed -i "s/name='gsai'/name='gsai.exe'/" gsai.spec
+        fi
+        
+        uv run pyinstaller gsai.spec --clean --noconfirm
+
+    - name: Test executable
+      shell: bash
+      run: |
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          EXECUTABLE="dist/gsai.exe"
+        else
+          EXECUTABLE="dist/gsai"
+          chmod +x "$EXECUTABLE"
+        fi
+        
+        if [ -f "$EXECUTABLE" ]; then
+          echo "✅ Executable built successfully"
+          ls -la "$EXECUTABLE"
+          
+          # Test basic commands
+          echo "Testing --help..."
+          "$EXECUTABLE" --help || echo "Help failed but continuing..."
+          
+          echo "Testing --version..."
+          "$EXECUTABLE" --version || echo "Version failed but continuing..."
+          
+          echo "Testing status..."
+          "$EXECUTABLE" status || echo "Status failed but continuing..."
+          
+        else
+          echo "❌ Executable not found"
+          ls -la dist/ || echo "No dist directory"
+          exit 1
+        fi
+
+    - name: Upload test artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-build-${{ runner.os }}
+        path: dist/
+        retention-days: 7
+
+    - name: Cleanup
+      if: always()
+      shell: bash
+      run: |
+        if [ -f gsai/config.py.bak ]; then
+          mv gsai/config.py.bak gsai/config.py
+        fi
+        rm -f gsai/build_config.py

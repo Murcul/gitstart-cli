@@ -1,194 +1,274 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""
-PyInstaller spec file for gsai CLI application.
-This creates a standalone executable with all dependencies bundled.
-"""
 
 import sys
+import os
 from pathlib import Path
 
-# Get the current directory
-current_dir = Path('.').absolute()
+# Add the project root to Python path
+project_root = Path('.').resolve()
+sys.path.insert(0, str(project_root))
 
-# Define the main script
-main_script = str(current_dir / 'gsai' / 'main.py')
-
-# Data files to include (templates, etc.)
-datas = []
-
-# Add Jinja2 templates
-templates_dir = current_dir / 'gsai' / 'agents' / 'prompts' / 'templates'
+# Get all template files
+template_files = []
+templates_dir = project_root / 'gsai' / 'agents' / 'prompts' / 'templates'
 if templates_dir.exists():
-    datas.append((str(templates_dir), 'gsai/agents/prompts/templates'))
-
-# Add package metadata for pydantic-ai packages to fix PyInstaller issue
-import importlib.metadata
-try:
-    # Collect metadata for pydantic-ai packages
-    for pkg_name in ['pydantic-ai', 'pydantic-ai-slim', 'pydantic-evals', 'pydantic-graph']:
-        try:
-            dist = importlib.metadata.distribution(pkg_name)
-            metadata_path = str(dist._path)
-            datas.append((metadata_path, f'pydantic_ai_slim-{dist.version}.dist-info'))
-        except importlib.metadata.PackageNotFoundError:
-            pass
-except Exception:
-    pass
-
-# Hidden imports - libraries that PyInstaller might miss
-hiddenimports = [
-    # Core CLI dependencies
-    'typer',
-    'typer.main',
-    'typer.core',
-    'click',
-    'click.core',
-    'rich',
-    'rich.console',
-    'rich.table',
-    'rich.panel',
-    'rich.progress',
-    'rich.syntax',
-    'rich.markdown',
-    'rich.traceback',
-    
-    # Pydantic and settings
-    'pydantic_ai',
-    'pydantic_ai.agent',
-    'pydantic_ai.models',
-    'pydantic_ai.models.openai',
-    'pydantic_ai.models.anthropic',
-    'pydantic_ai._utils',
-    'pydantic_ai_slim',
-    'pydantic_evals',
-    'pydantic_graph',
-    'pydantic',
-    'pydantic.main',
-    'pydantic.fields',
-    'pydantic.types',
-    'pydantic_settings',
-    'pydantic_settings.main',
-    
-    # Logging
-    'loguru',
-    'loguru._logger',
-    
-    # AI APIs
-    'openai',
-    'openai.api',
-    'openai.models',
-    'anthropic',
-    'anthropic.client',
-    'anthropic.models',
-    
-    # Git operations
-    'git',
-    'git.repo',
-    'git.cmd',
-    'GitPython',
-    
-    # Tree-sitter
-    'tree_sitter',
-    'tree_sitter_language_pack',
-    'tree_sitter_python',
-    'tree_sitter_javascript',
-    'tree_sitter_typescript',
-    'tree_sitter_java',
-    'tree_sitter_cpp',
-    'tree_sitter_c',
-    'tree_sitter_go',
-    'tree_sitter_rust',
-    
-    # Code analysis
-    'grep_ast',
-    'grep_ast.ast_grep',
-    
-    # Web scraping
-    'bs4',
-    'beautifulsoup4',
-    'duckduckgo_search',
-    'requests',
-    'requests.adapters',
-    'requests.auth',
-    'requests.sessions',
-    'urllib3',
-    
-    # Templates
-    'jinja2',
-    'jinja2.loaders',
-    'jinja2.environment',
-    
-    # Tokenization
-    'tiktoken',
-    'tiktoken.core',
-    'tiktoken_ext',
-    'tiktoken_ext.openai_public',
-    
-    # Syntax highlighting
-    'pygments',
-    'pygments.lexers',
-    'pygments.formatters',
-    
-    # File operations
-    'pathspec',
-    'pathspec.patterns',
-    
-    # Graph operations
-    'networkx',
-    'networkx.classes',
-    'networkx.algorithms',
-    
-    # Async
-    'asyncer',
-    'asyncio',
-    
-    # Cache
-    'diskcache',
-    'diskcache.core',
-    
-    # Additional imports that might be missed
-    'email.mime',  # For some HTTP libraries
-    'email.mime.multipart',
-    'email.mime.text',
-    'json',
-    'csv',
-    'sqlite3',
-    'http.client',
-    'ssl',
-    'certifi',  # SSL certificates
-]
-
-# Binaries to exclude (reduce size)
-excludes = [
-    'tkinter',
-    'matplotlib',
-    'numpy',
-    'scipy',
-    'pandas',
-    'PIL',
-    'tornado',
-    'jupyter',
-    'notebook',
-    'IPython',
-]
+    for template_file in templates_dir.rglob('*'):
+        if template_file.is_file():
+            rel_path = template_file.relative_to(project_root)
+            template_files.append((str(template_file), str(rel_path.parent)))
 
 a = Analysis(
-    [main_script],
-    pathex=[str(current_dir)],
+    ['gsai/main.py'],
+    pathex=[str(project_root)],
     binaries=[],
-    datas=datas,
-    hiddenimports=hiddenimports,
+    datas=template_files,
+    hiddenimports=[
+        # Core gsai modules
+        'gsai',
+        'gsai.main',
+        'gsai.config',
+        'gsai.chat',
+        'gsai.security',
+        'gsai.utils',
+        'gsai.special',
+        'gsai.linter',
+        'gsai.display_helpers',
+        'gsai.repo_map',
+        
+        # Agents
+        'gsai.agents',
+        'gsai.agents.master',
+        'gsai.agents.code_writing',
+        'gsai.agents.question_answering',
+        'gsai.agents.git_operations',
+        'gsai.agents.implementation_planning',
+        'gsai.agents.research',
+        'gsai.agents.ticket_writing',
+        'gsai.agents.models',
+        
+        # Tools
+        'gsai.agents.tools',
+        'gsai.agents.tools.view_file',
+        'gsai.agents.tools.str_replace',
+        'gsai.agents.tools.sequential_thinking',
+        'gsai.agents.tools.search_for_files',
+        'gsai.agents.tools.search_for_code',
+        'gsai.agents.tools.save_to_memory',
+        'gsai.agents.tools.run_command',
+        'gsai.agents.tools.quick_view_file',
+        'gsai.agents.tools.overwrite_file',
+        'gsai.agents.tools.move_file',
+        'gsai.agents.tools.list_files',
+        'gsai.agents.tools.lint_source_code',
+        'gsai.agents.tools.git_tools',
+        'gsai.agents.tools.deps',
+        'gsai.agents.tools.delete_file',
+        
+        # Agentic tools
+        'gsai.agents.tools_agentic',
+        'gsai.agents.tools_agentic.extract_relevant_context_from_url',
+        'gsai.agents.tools_agentic.expert',
+        'gsai.agents.tools_agentic.web_search',
+        'gsai.agents.tools_agentic.web_navigation',
+        
+        # Prompts
+        'gsai.agents.prompts',
+        'gsai.agents.prompts.helpers',
+        'gsai.agents.prompts.templates',
+        
+        # Build config (if it exists)
+        'gsai.build_config',
+        
+        # Core dependencies
+        'pydantic_ai',
+        'pydantic_ai.agent',
+        'pydantic_ai.messages',
+        'pydantic_ai.models',
+        'pydantic_ai.tools',
+        'pydantic_ai.exceptions',
+        'pydantic_ai.settings',
+        'pydantic_ai._utils',
+        
+        # AI providers
+        'openai',
+        'openai.types',
+        'openai._client',
+        'anthropic',
+        'anthropic._client',
+        'anthropic.types',
+        
+        # CLI and UI
+        'typer',
+        'typer.main',
+        'typer.core',
+        'rich',
+        'rich.console',
+        'rich.table',
+        'rich.panel',
+        'rich.text',
+        'rich.markdown',
+        'rich.syntax',
+        'rich.progress',
+        'rich.live',
+        'rich.layout',
+        'rich.prompt',
+        
+        # Settings and validation
+        'pydantic',
+        'pydantic.main',
+        'pydantic.fields',
+        'pydantic.types',
+        'pydantic_settings',
+        'pydantic_settings.main',
+        
+        # Logging
+        'loguru',
+        'loguru._logger',
+        
+        # Git operations
+        'git',
+        'GitPython',
+        
+        # Code analysis
+        'tree_sitter',
+        'tree_sitter_language_pack',
+        'grep_ast',
+        
+        # Web and search
+        'beautifulsoup4',
+        'bs4',
+        'duckduckgo_search',
+        'requests',
+        'httpx',
+        
+        # Templates and text processing
+        'jinja2',
+        'jinja2.environment',
+        'jinja2.loaders',
+        
+        # Token counting
+        'tiktoken',
+        'tiktoken.core',
+        
+        # Syntax highlighting
+        'pygments',
+        'pygments.lexers',
+        'pygments.formatters',
+        
+        # File matching
+        'pathspec',
+        
+        # Graph operations
+        'networkx',
+        'networkx.algorithms',
+        
+        # Async utilities
+        'asyncer',
+        
+        # Caching
+        'diskcache',
+        
+        # Package resolution fixes
+        'importlib_metadata',
+        'importlib_metadata._meta',
+        
+        # Git modules
+        'git',
+        'gitdb',
+        'gitdb.db',
+        'smmap',
+        
+        # Beautiful Soup
+        'bs4',
+        'bs4.builder',
+        'bs4.element',
+        
+        # Standard library modules that might be missing
+        'json',
+        'csv',
+        'sqlite3',
+        'zlib',
+        'gzip',
+        'base64',
+        'uuid',
+        'hashlib',
+        'hmac',
+        'secrets',
+        'datetime',
+        'time',
+        'os',
+        'sys',
+        'pathlib',
+        'subprocess',
+        'tempfile',
+        'shutil',
+        'glob',
+        'fnmatch',
+        'urllib',
+        'urllib.parse',
+        'urllib.request',
+        'html',
+        'html.parser',
+        'xml',
+        'xml.etree',
+        'xml.etree.ElementTree',
+        'email',
+        'email.mime',
+        'asyncio',
+        'concurrent',
+        'concurrent.futures',
+        'threading',
+        'multiprocessing',
+        'queue',
+        'collections',
+        'collections.abc',
+        'itertools',
+        'functools',
+        'operator',
+        'contextlib',
+        'weakref',
+        'copy',
+        'pickle',
+        'struct',
+        'socket',
+        'ssl',
+        'certifi',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=excludes,
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=None,
+    excludes=[
+        # Exclude heavy packages we don't need
+        'matplotlib',
+        'numpy',
+        'pandas',
+        'scipy',
+        'PIL',
+        'tkinter',
+        'PyQt5',
+        'PyQt6',
+        'PySide2',
+        'PySide6',
+        'jupyter',
+        'IPython',
+        'notebook',
+        'django',
+        'flask',
+        'tornado',
+        'twisted',
+        'docutils',
+        'sphinx',
+        'pytest',
+        'pip',
+        'wheel',
+    ],
     noarchive=False,
+    optimize=0,
 )
 
-# Remove duplicate entries
+# Filter out any None values from datas
+a.datas = [item for item in a.datas if item is not None]
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 
 exe = EXE(
@@ -202,7 +282,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,  # Compress executable
+    upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=True,
@@ -211,5 +291,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # Add icon path here if available
 )

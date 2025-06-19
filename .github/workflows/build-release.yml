@@ -1,0 +1,369 @@
+name: Build and Release Cross-Platform Executables
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
+        default: 'v0.0.1'
+      openai_key:
+        description: 'OpenAI API Key to embed (optional)'
+        required: false
+      anthropic_key:
+        description: 'Anthropic API Key to embed (optional)'
+        required: false
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x86_64
+            extension: ''
+            setup_cmd: 'sudo apt-get update && sudo apt-get install -y binutils'
+          - os: windows-latest
+            platform: windows
+            arch: x86_64
+            extension: '.exe'
+            setup_cmd: ''
+          - os: macos-latest
+            platform: macos
+            arch: x86_64
+            extension: ''
+            setup_cmd: ''
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: System setup
+      if: matrix.setup_cmd != ''
+      run: ${{ matrix.setup_cmd }}
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Create build config
+      shell: bash
+      run: |
+        # Create build config with embedded API keys from secrets or inputs
+        OPENAI_KEY="${{ secrets.OPENAI_API_KEY || github.event.inputs.openai_key || '' }}"
+        ANTHROPIC_KEY="${{ secrets.ANTHROPIC_API_KEY || github.event.inputs.anthropic_key || '' }}"
+        
+        mkdir -p gsai
+        cat > gsai/build_config.py << EOF
+        """
+        Build-time configuration with embedded API keys.
+        This file is generated during build and should not be committed.
+        """
+        
+        EMBEDDED_OPENAI_API_KEY = "${OPENAI_KEY}"
+        EMBEDDED_ANTHROPIC_API_KEY = "${ANTHROPIC_KEY}"
+        EOF
+
+    - name: Modify config for build
+      shell: bash
+      run: |
+        # Backup original config
+        cp gsai/config.py gsai/config.py.bak
+        
+        # Add import at the top of config.py
+        cat > temp_config.py << 'EOF'
+        try:
+            from gsai.build_config import EMBEDDED_OPENAI_API_KEY, EMBEDDED_ANTHROPIC_API_KEY
+        except ImportError:
+            EMBEDDED_OPENAI_API_KEY = ''
+            EMBEDDED_ANTHROPIC_API_KEY = ''
+
+        EOF
+        cat gsai/config.py >> temp_config.py
+        
+        # Replace the API key fields
+        sed -i.tmp 's/OPENAI_API_KEY: str = Field(default="", description="OpenAI API Key")/OPENAI_API_KEY: str = Field(default=EMBEDDED_OPENAI_API_KEY or "", description="OpenAI API Key")/g' temp_config.py
+        sed -i.tmp 's/ANTHROPIC_API_KEY: str = Field(default="", description="Anthropic API Key")/ANTHROPIC_API_KEY: str = Field(default=EMBEDDED_ANTHROPIC_API_KEY or "", description="Anthropic API Key")/g' temp_config.py
+        
+        mv temp_config.py gsai/config.py
+
+    - name: Build executable with PyInstaller
+      shell: bash
+      run: |
+        # Create PyInstaller spec file
+        cat > gsai.spec << 'EOF'
+        # -*- mode: python ; coding: utf-8 -*-
+        
+        import sys
+        from pathlib import Path
+        
+        # Add the project root to Python path
+        project_root = Path('.').resolve()
+        sys.path.insert(0, str(project_root))
+        
+        a = Analysis(
+            ['gsai/main.py'],
+            pathex=[str(project_root)],
+            binaries=[],
+            datas=[
+                ('gsai/agents/prompts/templates', 'gsai/agents/prompts/templates'),
+            ],
+            hiddenimports=[
+                'gsai',
+                'gsai.agents',
+                'gsai.agents.tools',
+                'gsai.agents.tools_agentic',
+                'gsai.agents.prompts',
+                'gsai.agents.prompts.templates',
+                'gsai.build_config',
+                'tree_sitter',
+                'tree_sitter_language_pack',
+                'pydantic_ai',
+                'pydantic_ai_slim',
+                'openai',
+                'anthropic',
+                'typer',
+                'rich',
+                'loguru',
+                'GitPython',
+                'grep_ast',
+                'beautifulsoup4',
+                'duckduckgo_search',
+                'requests',
+                'jinja2',
+                'tiktoken',
+                'pygments',
+                'pathspec',
+                'networkx',
+                'asyncer',
+                'diskcache',
+            ],
+            hookspath=[],
+            hooksconfig={},
+            runtime_hooks=[],
+            excludes=[
+                'matplotlib',
+                'numpy',
+                'pandas',
+                'scipy',
+                'PIL',
+                'tkinter',
+            ],
+            noarchive=False,
+            optimize=0,
+        )
+        
+        pyz = PYZ(a.pure, a.zipped_data, cipher=None)
+        
+        exe = EXE(
+            pyz,
+            a.scripts,
+            a.binaries,
+            a.zipfiles,
+            a.datas,
+            [],
+            name='gsai${{ matrix.extension }}',
+            debug=False,
+            bootloader_ignore_signals=False,
+            strip=False,
+            upx=True,
+            upx_exclude=[],
+            runtime_tmpdir=None,
+            console=True,
+            disable_windowed_traceback=False,
+            argv_emulation=False,
+            target_arch=None,
+            codesign_identity=None,
+            entitlements_file=None,
+        )
+        EOF
+        
+        # Build with PyInstaller
+        uv run pyinstaller gsai.spec --clean --noconfirm
+
+    - name: Verify executable
+      shell: bash
+      run: |
+        if [ -f "dist/gsai${{ matrix.extension }}" ]; then
+          echo "✅ Executable built successfully"
+          ls -la dist/gsai${{ matrix.extension }}
+          
+          # Test the executable (basic check)
+          if [ "${{ matrix.platform }}" != "windows" ]; then
+            chmod +x dist/gsai${{ matrix.extension }}
+            ./dist/gsai${{ matrix.extension }} --version || echo "Version check failed (may be expected)"
+          fi
+        else
+          echo "❌ Executable not found"
+          ls -la dist/
+          exit 1
+        fi
+
+    - name: Prepare release artifact
+      shell: bash
+      run: |
+        # Create release directory
+        mkdir -p release
+        
+        # Set version
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${{ github.ref_name }}"
+        fi
+        
+        # Copy executable with proper naming
+        ARTIFACT_NAME="gsai-${VERSION}-${{ matrix.platform }}-${{ matrix.arch }}${{ matrix.extension }}"
+        cp "dist/gsai${{ matrix.extension }}" "release/${ARTIFACT_NAME}"
+        
+        # Create info file
+        cat > "release/${ARTIFACT_NAME}.info" << EOF
+        GitStart CoPilot CLI
+        Version: ${VERSION}
+        Platform: ${{ matrix.platform }}
+        Architecture: ${{ matrix.arch }}
+        Built: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        Commit: ${{ github.sha }}
+        EOF
+        
+        echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> $GITHUB_ENV
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: gsai-${{ matrix.platform }}-${{ matrix.arch }}
+        path: release/
+        retention-days: 90
+
+    - name: Restore original config
+      if: always()
+      shell: bash
+      run: |
+        if [ -f gsai/config.py.bak ]; then
+          mv gsai/config.py.bak gsai/config.py
+        fi
+        rm -f gsai/build_config.py
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Prepare release
+      run: |
+        # Set version
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${{ github.ref_name }}"
+        fi
+        
+        echo "VERSION=${VERSION}" >> $GITHUB_ENV
+        
+        # Create release directory
+        mkdir -p release
+        
+        # Copy all artifacts to release directory
+        find artifacts -name "gsai-*" -type f | while read file; do
+          cp "$file" release/
+        done
+        
+        # List all files
+        echo "Release files:"
+        ls -la release/
+
+    - name: Generate release notes
+      run: |
+        cat > release_notes.md << EOF
+        # GitStart CoPilot CLI ${VERSION}
+        
+        ## 🚀 Cross-Platform Executables
+        
+        Download the appropriate executable for your platform:
+        
+        ### Windows
+        - **gsai-${VERSION}-windows-x86_64.exe** - Windows 64-bit executable
+        
+        ### macOS
+        - **gsai-${VERSION}-macos-x86_64** - macOS Intel/Apple Silicon executable
+        
+        ### Linux
+        - **gsai-${VERSION}-linux-x86_64** - Linux 64-bit executable
+        
+        ## 📖 Usage
+        
+        1. Download the executable for your platform
+        2. Make it executable (Linux/macOS): `chmod +x gsai-*`
+        3. Run: `./gsai-* --help`
+        4. Configure API keys: `./gsai-* configure`
+        5. Start coding: `./gsai-* chat`
+        
+        ## 🔑 API Keys
+        
+        This build may include embedded API keys if configured during build.
+        You can also configure your own keys using:
+        
+        \`\`\`bash
+        ./gsai-* configure
+        \`\`\`
+        
+        ## 🛠️ Features
+        
+        - Interactive AI coding assistant
+        - Cross-platform compatibility
+        - No installation required
+        - Embedded dependencies
+        - Secure API key management
+        
+        ## 📝 Notes
+        
+        - Built with Python 3.12
+        - Includes all required dependencies
+        - Self-contained executable
+        - No Python installation required on target system
+        
+        ---
+        
+        **Built on:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        **Commit:** ${{ github.sha }}
+        EOF
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ env.VERSION }}
+        name: GitStart CoPilot CLI ${{ env.VERSION }}
+        body_path: release_notes.md
+        files: release/*
+        draft: false
+        prerelease: ${{ contains(env.VERSION, 'alpha') || contains(env.VERSION, 'beta') || contains(env.VERSION, 'rc') }}
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

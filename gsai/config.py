@@ -1,3 +1,9 @@
+try:
+    from gsai.build_config import EMBEDDED_OPENAI_API_KEY, EMBEDDED_ANTHROPIC_API_KEY
+except ImportError:
+    EMBEDDED_OPENAI_API_KEY = ''
+    EMBEDDED_ANTHROPIC_API_KEY = ''
+
 """CLI-specific configuration extending base settings."""
 
 import logging
@@ -402,8 +408,8 @@ class Settings(BaseSettings):
     )
 
     # Model Keys
-    OPENAI_API_KEY: str = Field(default="", description="OpenAI API Key")
-    ANTHROPIC_API_KEY: str = Field(default="", description="Anthropic API Key")
+    OPENAI_API_KEY: str = Field(default=EMBEDDED_OPENAI_API_KEY or "", description="OpenAI API Key")
+    ANTHROPIC_API_KEY: str = Field(default=EMBEDDED_ANTHROPIC_API_KEY or "", description="Anthropic API Key")
 
     # Where all repos should be stored
     REPOS_PATH: str = Field(

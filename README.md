@@ -45,17 +45,50 @@ An interactive command-line interface that provides an AI coding assistant with 
 
 ## Installation
 
+### One-Click Installer (Recommended)
+
+**Linux/macOS:**
+```bash
+# Clone and run installer
+git clone <repository-url>
+cd gitstart-cli
+./install.sh
+```
+
+**Windows:**
+```bat
+REM Clone and run installer
+git clone <repository-url>
+cd gitstart-cli
+install.bat
+```
+
+**Or use the quick installer:**
+```bash
+# One-liner installer (Linux/macOS)
+curl -sSL https://raw.githubusercontent.com/your-repo/gitstart-cli/master/quick-install.sh | bash
+```
+
+The installer will:
+- ✅ Check all prerequisites (Python 3.12+, uv)
+- ✅ Install missing dependencies automatically
+- ✅ Configure API keys securely
+- ✅ Install the CLI globally
+- ✅ Test the installation
+
+### Manual Installation
+
 ### Prerequisites
 - Python 3.12+
 - Git (for repository operations)
 - OpenAI API key and/or Anthropic API key
 
-### Install with uv (Recommended)
+### Install with uv (Manual)
 
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd gitstart-copilot
+cd gitstart-cli
 
 # Install with uv
 uv sync
@@ -69,7 +102,7 @@ uv tool install .
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd gitstart-copilot
+cd gitstart-cli
 
 # Install dependencies
 pip install -e .

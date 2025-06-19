@@ -45,8 +45,12 @@ class ChatSession:
 
     async def ensure_api_keys(self) -> bool:
         """Ensure API keys are configured, prompt if missing."""
+        
+        # Check if we have any valid API keys (non-empty strings)
+        has_openai = cli_settings.OPENAI_API_KEY and cli_settings.OPENAI_API_KEY.strip()
+        has_anthropic = cli_settings.ANTHROPIC_API_KEY and cli_settings.ANTHROPIC_API_KEY.strip()
 
-        if not cli_settings.OPENAI_API_KEY and not cli_settings.ANTHROPIC_API_KEY:
+        if not has_openai and not has_anthropic:
             console.print(
                 Panel(
                     "[yellow]No API keys configured. You need at least one API key to use the AI assistant.[/yellow]\n\n"
@@ -64,7 +68,10 @@ class ChatSession:
     async def prompt_for_missing_keys(self) -> None:
         """Interactively prompt for missing API keys."""
 
-        if not cli_settings.OPENAI_API_KEY:
+        has_openai = cli_settings.OPENAI_API_KEY and cli_settings.OPENAI_API_KEY.strip()
+        has_anthropic = cli_settings.ANTHROPIC_API_KEY and cli_settings.ANTHROPIC_API_KEY.strip()
+
+        if not has_openai:
             openai_key = Prompt.ask(
                 "OpenAI API Key (leave empty to skip)",
                 default="",
@@ -85,7 +92,7 @@ class ChatSession:
                 else:
                     console.print("[red]✗ Failed to save OpenAI API key[/red]")
 
-        if not cli_settings.ANTHROPIC_API_KEY:
+        if not has_anthropic:
             anthropic_key = Prompt.ask(
                 "Anthropic API Key (leave empty to skip)",
                 default="",
@@ -435,12 +442,34 @@ Ready to assist with your coding tasks!
         self.display_welcome()
 
         # Check for API keys and offer to configure if missing
+        has_openai = cli_settings.OPENAI_API_KEY and cli_settings.OPENAI_API_KEY.strip()
+        has_anthropic = cli_settings.ANTHROPIC_API_KEY and cli_settings.ANTHROPIC_API_KEY.strip()
 
-        if not cli_settings.OPENAI_API_KEY and not cli_settings.ANTHROPIC_API_KEY:
+        if not has_openai and not has_anthropic:
+            # Check if this is a development environment or production build
+            try:
+                from gsai.build_config import EMBEDDED_OPENAI_API_KEY, EMBEDDED_ANTHROPIC_API_KEY
+                is_built_version = bool(EMBEDDED_OPENAI_API_KEY or EMBEDDED_ANTHROPIC_API_KEY)
+            except ImportError:
+                is_built_version = False
+            
+            if is_built_version:
+                # Production build but keys are still empty - this shouldn't happen
+                message = "[red]Build configuration issue: API keys not properly embedded during build.[/red]\n\n" \
+                         "This version was built with GitHub Actions but API keys are missing.\n" \
+                         "Please contact the distributor or configure your own keys."
+            else:
+                # Development environment
+                message = "[yellow]No API keys configured.[/yellow]\n\n" \
+                         "For development, you can:\n" \
+                         "• Configure keys now (saves to ~/.ai/gsai/.env)\n" \
+                         "• Set environment variables OPENAI_API_KEY or ANTHROPIC_API_KEY\n" \
+                         "• Build the application with embedded keys via GitHub Actions"
+            
             console.print(
                 Panel(
-                    "[yellow]No API keys found. Would you like to configure them now?[/yellow]",
-                    title="Setup Required",
+                    message,
+                    title="API Keys Required",
                     border_style="yellow",
                 )
             )
@@ -452,6 +481,20 @@ Ready to assist with your coding tasks!
             )
             if setup_now.lower() == "y":
                 await self.prompt_for_missing_keys()
+            else:
+                console.print("\n[blue]💡 Quick setup:[/blue]")
+                console.print("  [white]gsai configure[/white]  - Interactive configuration")
+                console.print("  [white]export OPENAI_API_KEY='your-key'[/white]  - Environment variable")
+                console.print("  [white]/set-api-key[/white]  - Set keys during chat session")
+        else:
+            # Show which API keys are available
+            available_keys = []
+            if has_openai:
+                available_keys.append("OpenAI")
+            if has_anthropic:
+                available_keys.append("Anthropic")
+            
+            console.print(f"[green]✓ API keys configured: {', '.join(available_keys)}[/green]")
 
         # Load session data without Live display (initialization only)
         console.print("🔄 Loading Repo Map...")

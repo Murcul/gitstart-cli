@@ -403,6 +403,69 @@ def cache_clear(
 
 
 @app.command()
+def status() -> None:
+    """Show configuration and API key status."""
+    try:
+        from gsai.build_config import EMBEDDED_OPENAI_API_KEY, EMBEDDED_ANTHROPIC_API_KEY
+        has_embedded_keys = bool(EMBEDDED_OPENAI_API_KEY or EMBEDDED_ANTHROPIC_API_KEY)
+    except ImportError:
+        has_embedded_keys = False
+        EMBEDDED_OPENAI_API_KEY = ""
+        EMBEDDED_ANTHROPIC_API_KEY = ""
+    
+    # Check current API key status
+    has_openai = cli_settings.OPENAI_API_KEY and cli_settings.OPENAI_API_KEY.strip()
+    has_anthropic = cli_settings.ANTHROPIC_API_KEY and cli_settings.ANTHROPIC_API_KEY.strip()
+    
+    # Create status table
+    table = Table(title="GitStart AI CLI Status")
+    table.add_column("Component", style="cyan")
+    table.add_column("Status", style="green")
+    table.add_column("Details", style="dim")
+    
+    # Version info
+    table.add_row("Version", get_version(), "GitStart AI CLI")
+    
+    # Build type
+    build_type = "Production (GitHub Actions)" if has_embedded_keys else "Development/Local"
+    table.add_row("Build Type", build_type, "")
+    
+    # API Keys
+    if has_openai:
+        openai_source = "Embedded" if EMBEDDED_OPENAI_API_KEY else "User Configured"
+        table.add_row("OpenAI API", "✓ Configured", openai_source)
+    else:
+        table.add_row("OpenAI API", "✗ Not Set", "Configure with 'gsai configure'")
+    
+    if has_anthropic:
+        anthropic_source = "Embedded" if EMBEDDED_ANTHROPIC_API_KEY else "User Configured"
+        table.add_row("Anthropic API", "✓ Configured", anthropic_source)
+    else:
+        table.add_row("Anthropic API", "✗ Not Set", "Configure with 'gsai configure'")
+    
+    # Overall status
+    if has_openai or has_anthropic:
+        table.add_row("Ready to Use", "✓ Yes", "API keys available")
+    else:
+        table.add_row("Ready to Use", "✗ No", "API keys required")
+    
+    # Configuration
+    global_status = config_manager.get_config_status()
+    config_exists = global_status["global_config_exists"] == "True"
+    table.add_row("Global Config", "✓ Exists" if config_exists else "✗ Not Found", 
+                  global_status["global_config_dir"])
+    
+    console.print(table)
+    
+    # Show next steps if needed
+    if not (has_openai or has_anthropic):
+        console.print("\n[yellow]💡 Next Steps:[/yellow]")
+        console.print("  [white]gsai configure[/white]  - Set up API keys interactively")
+        console.print("  [white]gsai chat[/white]       - Start AI coding session (will prompt for keys)")
+        console.print("  [white]export OPENAI_API_KEY='your-key'[/white]  - Set via environment")
+
+
+@app.command()
 def version() -> None:
     """Show version information."""
     current_version = get_version()

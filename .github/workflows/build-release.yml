@@ -671,18 +671,37 @@ jobs:
 
     - name: Delete existing release if it exists
       run: |
-        # Delete existing release and tag if they exist
-        if gh release view ${{ env.VERSION }} >/dev/null 2>&1; then
-          echo "Deleting existing release ${{ env.VERSION }}"
-          gh release delete ${{ env.VERSION }} --yes
+        # Set up git config for actions
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        
+        echo "Checking for existing release: ${{ env.VERSION }}"
+        
+        # Check and delete existing release
+        RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ env.VERSION }}" | \
+          grep '"id":' | head -1 | cut -d: -f2 | cut -d, -f1 | tr -d ' ')
+        
+        if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
+          echo "Found existing release with ID: $RELEASE_ID, deleting..."
+          curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID" || true
+        else
+          echo "No existing release found"
         fi
         
-        # Delete tag if it exists
-        if git tag -l | grep -q "^${{ env.VERSION }}$"; then
-          echo "Deleting existing tag ${{ env.VERSION }}"
-          git tag -d ${{ env.VERSION }} || true
-          git push origin :refs/tags/${{ env.VERSION }} || true
+        # Check and delete existing tag  
+        if git ls-remote --tags origin | grep -q "refs/tags/${{ env.VERSION }}$"; then
+          echo "Found existing tag, deleting..."
+          git push origin --delete "${{ env.VERSION }}" || true
         fi
+        
+        # Also try with gh CLI as backup
+        if command -v gh >/dev/null 2>&1; then
+          gh release delete "${{ env.VERSION }}" --yes || true
+        fi
+        
+        echo "Cleanup completed"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
@@ -696,7 +715,7 @@ jobs:
         draft: false
         prerelease: ${{ contains(env.VERSION, 'alpha') || contains(env.VERSION, 'beta') || contains(env.VERSION, 'rc') }}
         generate_release_notes: true
-        discussion_category_name: "Releases"
+        fail_on_unmatched_files: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         

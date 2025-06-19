@@ -8,6 +8,11 @@ import sys
 import datetime
 from pathlib import Path
 
+# Ensure proper encoding for Windows
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # Add the project root to the path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -23,7 +28,7 @@ def embed_keys():
     anthropic_key = os.getenv('ANTHROPIC_API_KEY', '')
     
     if not openai_key and not anthropic_key:
-        print("⚠️ Warning: No API keys found in environment variables")
+        print("WARNING: No API keys found in environment variables")
         print("   Make sure OPENAI_API_KEY and/or ANTHROPIC_API_KEY are set in GitHub Secrets")
         return False
     
@@ -32,7 +37,7 @@ def embed_keys():
     encrypted_anthropic = encrypt_api_key(anthropic_key) if anthropic_key else ""
     
     # Get build metadata
-    build_timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+    build_timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
     commit_sha = os.getenv('GITHUB_SHA', 'unknown')
     
     # Generate the build_config.py content
@@ -58,9 +63,9 @@ BUILD_COMMIT_SHA = "{commit_sha}"
     with open(build_config_path, 'w') as f:
         f.write(build_config_content)
     
-    print("✅ Successfully embedded encrypted API keys into build_config.py")
-    print(f"   - OpenAI Key: {'✓ Embedded' if encrypted_openai else '✗ Not provided'}")
-    print(f"   - Anthropic Key: {'✓ Embedded' if encrypted_anthropic else '✗ Not provided'}")
+    print("SUCCESS: Successfully embedded encrypted API keys into build_config.py")
+    print(f"   - OpenAI Key: {'Embedded' if encrypted_openai else 'Not provided'}")
+    print(f"   - Anthropic Key: {'Embedded' if encrypted_anthropic else 'Not provided'}")
     print(f"   - Build Timestamp: {build_timestamp}")
     print(f"   - Commit SHA: {commit_sha}")
     

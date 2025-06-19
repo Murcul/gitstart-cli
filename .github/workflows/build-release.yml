@@ -73,6 +73,7 @@ jobs:
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || github.event.inputs.openai_key || '' }}
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || github.event.inputs.anthropic_key || '' }}
+        PYTHONIOENCODING: utf-8
       run: |
         # Install cryptography for key encryption
         uv add cryptography
@@ -80,28 +81,19 @@ jobs:
         # Run the build script to embed encrypted keys
         uv run python scripts/build_with_keys.py
 
-    - name: Modify config for build
+    - name: Verify build config
       shell: bash
       run: |
-        # Backup original config
-        cp gsai/config.py gsai/config.py.bak
-        
-        # Add import at the top of config.py
-        cat > temp_config.py << 'EOF'
-        try:
-            from gsai.build_config import EMBEDDED_OPENAI_API_KEY, EMBEDDED_ANTHROPIC_API_KEY
-        except ImportError:
-            EMBEDDED_OPENAI_API_KEY = ''
-            EMBEDDED_ANTHROPIC_API_KEY = ''
-
-        EOF
-        cat gsai/config.py >> temp_config.py
-        
-        # Replace the API key fields
-        sed -i.tmp 's/OPENAI_API_KEY: str = Field(default="", description="OpenAI API Key")/OPENAI_API_KEY: str = Field(default=EMBEDDED_OPENAI_API_KEY or "", description="OpenAI API Key")/g' temp_config.py
-        sed -i.tmp 's/ANTHROPIC_API_KEY: str = Field(default="", description="Anthropic API Key")/ANTHROPIC_API_KEY: str = Field(default=EMBEDDED_ANTHROPIC_API_KEY or "", description="Anthropic API Key")/g' temp_config.py
-        
-        mv temp_config.py gsai/config.py
+        echo "Verifying encrypted build config was created..."
+        if [ -f "gsai/build_config.py" ]; then
+          echo "SUCCESS: build_config.py created"
+          echo "Build type: $(grep 'BUILD_TYPE' gsai/build_config.py || echo 'Not found')"
+          echo "Has OpenAI key: $(grep -q 'EMBEDDED_OPENAI_API_KEY = \"\"' gsai/build_config.py && echo 'Empty' || echo 'Set')"
+          echo "Has Anthropic key: $(grep -q 'EMBEDDED_ANTHROPIC_API_KEY = \"\"' gsai/build_config.py && echo 'Empty' || echo 'Set')"
+        else
+          echo "ERROR: build_config.py not created"
+          exit 1
+        fi
 
     - name: Build executable with PyInstaller
       shell: bash
@@ -132,6 +124,7 @@ jobs:
                 'gsai.agents.prompts',
                 'gsai.agents.prompts.templates',
                 'gsai.build_config',
+                'gsai.crypto_utils',
                 'tree_sitter',
                 'tree_sitter_language_pack',
                 'pydantic_ai',
@@ -153,6 +146,13 @@ jobs:
                 'networkx',
                 'asyncer',
                 'diskcache',
+                'cryptography',
+                'cryptography.fernet',
+                'cryptography.hazmat',
+                'cryptography.hazmat.primitives',
+                'cryptography.hazmat.primitives.hashes',
+                'cryptography.hazmat.primitives.kdf',
+                'cryptography.hazmat.primitives.kdf.pbkdf2',
             ],
             hookspath=[],
             hooksconfig={},
@@ -282,14 +282,13 @@ jobs:
         path: release/
         retention-days: 90
 
-    - name: Restore original config
+    - name: Cleanup build artifacts
       if: always()
       shell: bash
       run: |
-        if [ -f gsai/config.py.bak ]; then
-          mv gsai/config.py.bak gsai/config.py
-        fi
+        # Clean up build config (contains embedded keys)
         rm -f gsai/build_config.py
+        echo "Cleaned up build artifacts"
 
   source-package:
     name: Create Source Package

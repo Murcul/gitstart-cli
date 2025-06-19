@@ -29,18 +29,21 @@ USAGE:
     ./trigger-release.sh [COMMAND] [OPTIONS]
 
 COMMANDS:
-    tag-release [VERSION]     Create and push a new release tag
-    manual-build [VERSION]    Trigger manual workflow dispatch
-    check-status             Check GitHub Actions status
-    list-releases            List existing releases
-    help                     Show this help
+    tag-release [VERSION]              Create and push a new release tag
+    manual-build [VERSION] [PUBLIC]    Trigger manual workflow dispatch
+    check-status                       Check GitHub Actions status
+    list-releases                      List existing releases
+    help                              Show this help
 
 EXAMPLES:
-    # Create a new release (triggers automatic build)
+    # Create a new release (triggers automatic build with public assets)
     ./trigger-release.sh tag-release v1.0.0
 
-    # Trigger manual build without creating tag
+    # Trigger manual build without creating tag (public by default)
     ./trigger-release.sh manual-build v1.0.0-beta
+
+    # Trigger private build (assets not publicly accessible)
+    ./trigger-release.sh manual-build v1.0.0-internal false
 
     # Check current workflow status
     ./trigger-release.sh check-status
@@ -49,20 +52,31 @@ REQUIREMENTS:
     - gh CLI tool installed and authenticated
     - Git repository with GitHub remote
     - Push access to the repository
+    - GitHub Secrets configured (OPENAI_API_KEY, ANTHROPIC_API_KEY)
 
 WHAT GETS BUILT:
     📦 Cross-platform executables (Windows, macOS, Linux)
     📋 Source code packages (complete, minimal, installers-only)
-    🔧 ZIP packages with installation instructions
-    📖 Release notes with download links
+    🔧 Installation scripts with public URLs
+    📖 Comprehensive release notes and guides
+    🌍 Public release assets (even from private repo)
 
 The GitHub Actions workflow will:
-    1. Build executables for all platforms
-    2. Embed API keys from GitHub Secrets
-    3. Create ZIP packages with installers
-    4. Generate source code packages
-    5. Create GitHub release with all artifacts
-    6. Generate comprehensive release notes
+    1. Build executables for all platforms with embedded API keys
+    2. Create ZIP packages with installation instructions
+    3. Generate source code packages for developers
+    4. Create comprehensive installation scripts
+    5. Create GitHub release with public assets
+    6. Generate public installation guide
+    7. Provide direct download URLs that work publicly
+
+PUBLIC INSTALLATION URLS (after release):
+    Windows:    https://github.com/Murcul/gitstart-cli/releases/download/VERSION/install.ps1
+    Linux/macOS: https://github.com/Murcul/gitstart-cli/releases/download/VERSION/install.sh
+    Zero-deps:  https://github.com/Murcul/gitstart-cli/releases/download/VERSION/standalone-install.sh
+
+Note: Even though the repository is private, release assets are publicly accessible,
+allowing users to install without repository access.
 
 EOF
 }
@@ -145,24 +159,41 @@ tag_release() {
 
 manual_build() {
     local version="$1"
+    local make_public="${2:-true}"
     
     if [ -z "$version" ]; then
         echo -e "${RED}❌ Version required${NC}"
-        echo "Usage: ./trigger-release.sh manual-build v1.0.0-test"
+        echo "Usage: ./trigger-release.sh manual-build v1.0.0-test [true|false]"
+        echo "  version: Release version (e.g., v1.0.0)"
+        echo "  make_public: Make release public (default: true)"
         exit 1
     fi
     
     echo -e "${BLUE}🚀 Triggering manual build for: $version${NC}"
+    echo -e "${BLUE}📢 Public release: $make_public${NC}"
     
     # Trigger workflow dispatch
     gh workflow run build-release.yml \
-        --field version="$version"
+        --field version="$version" \
+        --field make_public="$make_public"
     
     echo -e "${GREEN}✅ Manual build triggered${NC}"
+    echo ""
+    echo "This will create:"
+    echo "  📦 Cross-platform executables"
+    echo "  🔧 Installation scripts"
+    echo "  📋 Source packages"
+    echo "  🌍 Public release (if enabled)"
     echo ""
     echo "Monitor progress:"
     echo "  gh run list --workflow=build-release.yml"
     echo "  gh run watch"
+    echo ""
+    if [ "$make_public" = "true" ]; then
+        echo -e "${YELLOW}After completion, installers will be available at:${NC}"
+        echo "  Windows: https://github.com/Murcul/gitstart-cli/releases/download/$version/install.ps1"
+        echo "  Linux/macOS: https://github.com/Murcul/gitstart-cli/releases/download/$version/install.sh"
+    fi
 }
 
 check_status() {
@@ -210,7 +241,7 @@ main() {
             ;;
         manual-build)
             check_requirements
-            manual_build "$2"
+            manual_build "$2" "$3"
             show_urls
             ;;
         check-status)

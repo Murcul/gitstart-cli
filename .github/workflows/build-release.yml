@@ -10,6 +10,11 @@ on:
         description: 'Release version'
         required: true
         default: 'v0.0.1'
+      make_public:
+        description: 'Make release public (even from private repo)'
+        type: boolean
+        required: false
+        default: true
       openai_key:
         description: 'OpenAI API Key to embed (optional)'
         required: false
@@ -481,6 +486,90 @@ jobs:
           cp "$file" release/
         done
         
+        # Copy installer scripts to release
+        if [ -f ../install.sh ]; then cp ../install.sh release/; fi
+        if [ -f ../install.ps1 ]; then cp ../install.ps1 release/; fi
+        if [ -f ../standalone-install.sh ]; then cp ../standalone-install.sh release/; fi
+        
+        # Create a direct download script for users
+        cat > release/quick-install.sh << 'EOF'
+#!/bin/bash
+# GitStart CoPilot CLI - Quick Installer
+# This script downloads and runs the appropriate installer for your platform
+
+set -e
+
+VERSION="$1"
+if [ -z "$VERSION" ]; then
+    echo "Usage: $0 <version>"
+    echo "Example: $0 v1.0.0"
+    exit 1
+fi
+
+REPO="Murcul/gitstart-cli"
+BASE_URL="https://github.com/$REPO/releases/download/$VERSION"
+
+case "$(uname -s)" in
+    Linux|Darwin)
+        echo "Downloading Linux/macOS installer..."
+        curl -sSL "$BASE_URL/install.sh" | bash
+        ;;
+    MINGW*|CYGWIN*|MSYS*)
+        echo "Please run this command in PowerShell:"
+        echo "iwr -useb '$BASE_URL/install.ps1' | iex"
+        ;;
+    *)
+        echo "Unsupported platform: $(uname -s)"
+        echo "Please download manually from: https://github.com/$REPO/releases/tag/$VERSION"
+        exit 1
+        ;;
+esac
+EOF
+        chmod +x release/quick-install.sh
+        
+        # Create installation instructions
+        cat > release/INSTALL.md << EOF
+# GitStart CoPilot CLI Installation
+
+## 🚀 One-Command Installation
+
+### Windows
+\`\`\`powershell
+iwr -useb https://github.com/Murcul/gitstart-cli/releases/download/${VERSION}/install.ps1 | iex
+\`\`\`
+
+### Linux/macOS
+\`\`\`bash
+curl -sSL https://github.com/Murcul/gitstart-cli/releases/download/${VERSION}/install.sh | bash
+\`\`\`
+
+### Zero-Dependency Installer
+\`\`\`bash
+curl -sSL https://github.com/Murcul/gitstart-cli/releases/download/${VERSION}/standalone-install.sh | bash
+\`\`\`
+
+## 📦 Direct Download
+
+Download the appropriate executable for your platform:
+- **Windows**: gsai-${VERSION}-windows-x86_64.zip
+- **macOS**: gsai-${VERSION}-macos-x86_64.zip
+- **Linux**: gsai-${VERSION}-linux-x86_64.zip
+
+Extract and run directly - no installation required!
+
+## 📋 What's Included
+
+- Cross-platform executables with embedded dependencies
+- One-command installers for system-wide installation
+- Source code packages for developers
+- Complete documentation and usage guides
+
+---
+
+**Built on:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+**Repository:** https://github.com/Murcul/gitstart-cli (private)
+EOF
+        
         # List all files
         echo "Release files:"
         ls -la release/
@@ -515,10 +604,13 @@ jobs:
         ### Option 2: One-Command Install (Recommended)
         \`\`\`bash
         # Linux/macOS
-        curl -sSL https://raw.githubusercontent.com/your-org/gitstart-cli/main/install.sh | bash
+        curl -sSL https://github.com/Murcul/gitstart-cli/releases/download/${VERSION}/install.sh | bash
         
         # Windows PowerShell
-        iwr -useb https://raw.githubusercontent.com/your-org/gitstart-cli/main/install.ps1 | iex
+        iwr -useb https://github.com/Murcul/gitstart-cli/releases/download/${VERSION}/install.ps1 | iex
+        
+        # Zero-dependency installer
+        curl -sSL https://github.com/Murcul/gitstart-cli/releases/download/${VERSION}/standalone-install.sh | bash
         \`\`\`
         
         ### Option 3: From Source
@@ -588,5 +680,82 @@ jobs:
         draft: false
         prerelease: ${{ contains(env.VERSION, 'alpha') || contains(env.VERSION, 'beta') || contains(env.VERSION, 'rc') }}
         generate_release_notes: true
+        make_latest: true
+        discussion_category_name: "Releases"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Make Release Assets Public
+      if: github.event.inputs.make_public == 'true' || github.event_name == 'push'
+      run: |
+        echo "📢 Release created with public assets!"
+        echo "🔗 Installation URLs are now public:"
+        echo ""
+        echo "Windows:"
+        echo "  iwr -useb https://github.com/Murcul/gitstart-cli/releases/download/${{ env.VERSION }}/install.ps1 | iex"
+        echo ""
+        echo "Linux/macOS:"
+        echo "  curl -sSL https://github.com/Murcul/gitstart-cli/releases/download/${{ env.VERSION }}/install.sh | bash"
+        echo ""
+        echo "Zero-dependency:"
+        echo "  curl -sSL https://github.com/Murcul/gitstart-cli/releases/download/${{ env.VERSION }}/standalone-install.sh | bash"
+        echo ""
+        echo "📦 Direct downloads available at:"
+        echo "  https://github.com/Murcul/gitstart-cli/releases/tag/${{ env.VERSION }}"
+        
+    - name: Create Public Installation Guide
+      run: |
+        cat > public-install-guide.md << EOF
+        # GitStart CoPilot CLI - Public Installation Guide
+        
+        **Version:** ${{ env.VERSION }}
+        **Repository:** https://github.com/Murcul/gitstart-cli (private)
+        **Public Release:** https://github.com/Murcul/gitstart-cli/releases/tag/${{ env.VERSION }}
+        
+        ## 🚀 Installation Commands (Public URLs)
+        
+        ### Windows
+        \`\`\`powershell
+        iwr -useb https://github.com/Murcul/gitstart-cli/releases/download/${{ env.VERSION }}/install.ps1 | iex
+        \`\`\`
+        
+        ### Linux/macOS
+        \`\`\`bash
+        curl -sSL https://github.com/Murcul/gitstart-cli/releases/download/${{ env.VERSION }}/install.sh | bash
+        \`\`\`
+        
+        ### Zero-Dependency Installer
+        \`\`\`bash
+        curl -sSL https://github.com/Murcul/gitstart-cli/releases/download/${{ env.VERSION }}/standalone-install.sh | bash
+        \`\`\`
+        
+        ## 📦 Direct Downloads
+        
+        - [Windows Executable](https://github.com/Murcul/gitstart-cli/releases/download/${{ env.VERSION }}/gsai-${{ env.VERSION }}-windows-x86_64.zip)
+        - [macOS Executable](https://github.com/Murcul/gitstart-cli/releases/download/${{ env.VERSION }}/gsai-${{ env.VERSION }}-macos-x86_64.zip)
+        - [Linux Executable](https://github.com/Murcul/gitstart-cli/releases/download/${{ env.VERSION }}/gsai-${{ env.VERSION }}-linux-x86_64.zip)
+        - [Complete Source Code](https://github.com/Murcul/gitstart-cli/releases/download/${{ env.VERSION }}/gsai-${{ env.VERSION }}-source.zip)
+        
+        ## ℹ️ About
+        
+        GitStart CoPilot CLI is an AI-powered coding assistant that helps you write, review, and improve code.
+        
+        **Features:**
+        - Interactive AI coding sessions
+        - Cross-platform support (Windows, macOS, Linux)
+        - Embedded API keys for immediate use
+        - No complex setup required
+        - System-wide installation with global access
+        
+        **Note:** This software is distributed from a private repository. The executable releases and installers are made publicly available for easy distribution while keeping the source code private.
+        
+        ---
+        
+        **Built:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        **Commit:** ${{ github.sha }}
+        EOF
+        
+        # Upload as release asset
+        gh release upload ${{ env.VERSION }} public-install-guide.md --clobber
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# GitStart CoPilot CLI - Universal Installer
-# One-command installation script that handles everything
+# GitStart CoPilot CLI - Simplified Installer
+# One-command installation script using uv tool install
 # Usage: curl -sSL https://raw.githubusercontent.com/Murcul/gitstart-cli/main/install.sh | bash
 
 set -e  # Exit on any error
@@ -21,40 +21,7 @@ REPO_URL="https://github.com/Murcul/gitstart-cli"
 ARCHIVE_URL="https://github.com/Murcul/gitstart-cli/archive/refs/heads/main.zip"
 TEMP_DIR="/tmp/gsai-install-$$"
 APP_NAME="gsai"
-PYTHON_MIN_VERSION="3.10"  # Relaxed for wider compatibility
-
-# Determine installation directory - default to system-wide
-if [ -z "$INSTALL_DIR" ]; then
-    # Try system-wide first (/usr/local/bin)
-    if [ -w "/usr/local/bin" ] || [ "$(id -u)" = "0" ]; then
-        INSTALL_DIR="/usr/local/bin"
-        IS_SYSTEM_INSTALL=true
-    elif command -v sudo >/dev/null 2>&1; then
-        # Ask user preference if sudo is available
-        echo "GitStart CoPilot CLI can be installed system-wide (/usr/local/bin) or user-only (~/.local/bin)"
-        echo "System-wide installation makes 'gsai' available for all users"
-        read -p "Install system-wide (requires sudo) [Y/n]? " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            INSTALL_DIR="/usr/local/bin"
-            IS_SYSTEM_INSTALL=true
-        else
-            INSTALL_DIR="$HOME/.local/bin"
-            IS_SYSTEM_INSTALL=false
-        fi
-    else
-        # No sudo, fall back to user install
-        INSTALL_DIR="$HOME/.local/bin"
-        IS_SYSTEM_INSTALL=false
-    fi
-else
-    # User specified INSTALL_DIR
-    if [[ "$INSTALL_DIR" == "/usr/local/bin" ]] || [[ "$INSTALL_DIR" == "/usr/bin" ]]; then
-        IS_SYSTEM_INSTALL=true
-    else
-        IS_SYSTEM_INSTALL=false
-    fi
-fi
+PYTHON_MIN_VERSION="3.10"
 
 # Functions
 print_banner() {
@@ -347,202 +314,15 @@ download_source() {
     fi
 }
 
-# Build application
-build_application() {
-    print_step "Building GitStart CoPilot CLI..."
-    
-    # Install dependencies and build
-    if uv sync; then
-        print_success "Dependencies installed ✓"
-    else
-        print_error "Failed to install dependencies"
-        exit 1
-    fi
-    
-    # Create executable using PyInstaller
-    print_info "Creating standalone executable..."
-    
-    # Create a simple build script
-    cat > build_simple.py << 'EOF'
-import subprocess
-import sys
-import os
-from pathlib import Path
-
-def build_executable():
-    try:
-        # Install PyInstaller
-        subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"], check=True)
-        
-        # Create spec file
-        spec_content = '''
-import sys
-from pathlib import Path
-
-# Add current directory to path
-sys.path.insert(0, str(Path('.').resolve()))
-
-a = Analysis(
-    ['gsai/main.py'],
-    pathex=[str(Path('.').resolve())],
-    binaries=[],
-    datas=[],
-    hiddenimports=[
-        'gsai',
-        'gsai.main',
-        'gsai.config',
-        'gsai.chat',
-        'pydantic_ai',
-        'openai',
-        'anthropic',
-        'typer',
-        'rich',
-        'pydantic',
-        'pydantic_settings',
-        'loguru',
-    ],
-    hookspath=[],
-    hooksconfig={},
-    runtime_hooks=[],
-    excludes=[
-        'matplotlib',
-        'numpy',
-        'pandas',
-        'scipy',
-        'PIL',
-        'tkinter',
-        'pytest',
-    ],
-    noarchive=False,
-    optimize=0,
-)
-
-pyz = PYZ(a.pure, a.zipped_data, cipher=None)
-
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
-    name='gsai',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=False,
-    runtime_tmpdir=None,
-    console=True,
-)
-'''
-        
-        with open('gsai_simple.spec', 'w') as f:
-            f.write(spec_content)
-        
-        # Build with PyInstaller
-        subprocess.run([sys.executable, "-m", "PyInstaller", "gsai_simple.spec", "--clean", "--noconfirm"], check=True)
-        
-        return True
-    except Exception as e:
-        print(f"Build failed: {e}")
-        return False
-
-if __name__ == "__main__":
-    if build_executable():
-        print("Build successful!")
-        sys.exit(0)
-    else:
-        print("Build failed!")
-        sys.exit(1)
-EOF
-    
-    # Try building with PyInstaller
-    if uv run python build_simple.py; then
-        if [ -f "dist/gsai" ]; then
-            print_success "Executable built successfully ✓"
-        else
-            # Fallback: create a wrapper script
-            print_warning "PyInstaller build failed, creating wrapper script..."
-            create_wrapper_script
-        fi
-    else
-        # Fallback: create a wrapper script
-        print_warning "Build failed, creating wrapper script..."
-        create_wrapper_script
-    fi
-}
-
-# Create wrapper script as fallback
-create_wrapper_script() {
-    print_info "Creating wrapper script..."
-    
-    # Install globally using uv
-    if uv tool install .; then
-        print_success "Installed via uv tool ✓"
-        return
-    fi
-    
-    # Create manual wrapper script
-    mkdir -p "$INSTALL_DIR"
-    
-    cat > "$INSTALL_DIR/gsai" << EOF
-#!/bin/bash
-# GitStart CoPilot CLI Wrapper Script
-# Auto-generated by installer
-
-SCRIPT_DIR="\$HOME/.gsai"
-VENV_DIR="\$SCRIPT_DIR/venv"
-
-# Create virtual environment if it doesn't exist
-if [ ! -d "\$VENV_DIR" ]; then
-    python3 -m venv "\$VENV_DIR"
-    source "\$VENV_DIR/bin/activate"
-    pip install -e "\$SCRIPT_DIR/source"
-else
-    source "\$VENV_DIR/bin/activate"
-fi
-
-# Run gsai
-exec python -m gsai "\$@"
-EOF
-    
-    chmod +x "$INSTALL_DIR/gsai"
-    
-    # Copy source to permanent location
-    mkdir -p "$HOME/.gsai"
-    cp -r . "$HOME/.gsai/source"
-    
-    print_success "Wrapper script created ✓"
-}
-
-# Install the application
+# Install application using uv tool
 install_application() {
     print_step "Installing GitStart CoPilot CLI..."
     
-    # Create install directory (with sudo if needed for system install)
-    if [ "$IS_SYSTEM_INSTALL" = true ] && [ "$(id -u)" != "0" ]; then
-        print_info "Creating system directory (requires sudo)..."
-        sudo mkdir -p "$INSTALL_DIR"
+    # Install using uv tool
+    if uv tool install .; then
+        print_success "Installed via uv tool ✓"
     else
-        mkdir -p "$INSTALL_DIR"
-    fi
-    
-    # Copy executable or ensure wrapper is in place
-    if [ -f "dist/gsai" ]; then
-        if [ "$IS_SYSTEM_INSTALL" = true ] && [ "$(id -u)" != "0" ]; then
-            print_info "Installing system-wide (requires sudo)..."
-            sudo cp "dist/gsai" "$INSTALL_DIR/gsai"
-            sudo chmod +x "$INSTALL_DIR/gsai"
-            print_success "Executable installed system-wide to $INSTALL_DIR/gsai ✓"
-        else
-            cp "dist/gsai" "$INSTALL_DIR/gsai"
-            chmod +x "$INSTALL_DIR/gsai"
-            print_success "Executable installed to $INSTALL_DIR/gsai ✓"
-        fi
-    elif [ -f "$INSTALL_DIR/gsai" ]; then
-        print_success "Wrapper script already installed ✓"
-    else
-        print_error "No executable or wrapper script found"
+        print_error "Failed to install via uv tool"
         exit 1
     fi
 }
@@ -551,39 +331,28 @@ install_application() {
 configure_path() {
     print_step "Configuring PATH..."
     
+    # uv tool installs to ~/.local/bin by default
+    LOCAL_BIN="$HOME/.local/bin"
+    
     # Check if already in PATH
-    if echo "$PATH" | grep -q "$INSTALL_DIR"; then
+    if echo "$PATH" | grep -q "$LOCAL_BIN"; then
         print_success "PATH already configured ✓"
         return
     fi
     
-    if [ "$IS_SYSTEM_INSTALL" = true ]; then
-        # System install - /usr/local/bin should already be in PATH
-        if [[ "$INSTALL_DIR" == "/usr/local/bin" ]]; then
-            print_success "System PATH configured (using /usr/local/bin) ✓"
-            # Add to current session just in case
-            export PATH="$INSTALL_DIR:$PATH"
-            return
-        elif [[ "$INSTALL_DIR" == "/usr/bin" ]]; then
-            print_success "System PATH configured (using /usr/bin) ✓"
-            export PATH="$INSTALL_DIR:$PATH"
-            return
-        fi
-    fi
-    
-    # User install or custom location - add to shell profiles
+    # Add to shell profiles
     local shell_profiles=(
         "$HOME/.bashrc"
         "$HOME/.zshrc"
         "$HOME/.profile"
     )
     
-    local path_line="export PATH=\"$INSTALL_DIR:\$PATH\""
+    local path_line="export PATH=\"$LOCAL_BIN:\$PATH\""
     
     print_info "Adding to shell profiles..."
     for profile in "${shell_profiles[@]}"; do
         if [ -f "$profile" ]; then
-            if ! grep -q "$INSTALL_DIR" "$profile"; then
+            if ! grep -q "$LOCAL_BIN" "$profile"; then
                 echo "" >> "$profile"
                 echo "# GitStart CoPilot CLI" >> "$profile"
                 echo "$path_line" >> "$profile"
@@ -593,13 +362,9 @@ configure_path() {
     done
     
     # Add to current session
-    export PATH="$INSTALL_DIR:$PATH"
+    export PATH="$LOCAL_BIN:$PATH"
     
-    if [ "$IS_SYSTEM_INSTALL" = true ]; then
-        print_success "System PATH configured ✓"
-    else
-        print_success "User PATH configured ✓"
-    fi
+    print_success "PATH configured ✓"
 }
 
 # Configure API keys
@@ -646,7 +411,7 @@ test_installation() {
         fi
     else
         print_warning "gsai command not found in PATH"
-        print_info "You may need to restart your terminal or run: export PATH=\"$INSTALL_DIR:\$PATH\""
+        print_info "You may need to restart your terminal or run: export PATH=\"$HOME/.local/bin:\$PATH\""
         return 1
     fi
 }
@@ -661,7 +426,7 @@ show_completion() {
     echo -e "${WHITE}GitStart CoPilot CLI has been successfully installed!${NC}"
     echo ""
     echo -e "${CYAN}Quick Start:${NC}"
-    echo -e "  ${YELLOW}1.${NC} Restart your terminal or run: ${WHITE}export PATH=\"$INSTALL_DIR:\$PATH\"${NC}"
+    echo -e "  ${YELLOW}1.${NC} Restart your terminal or run: ${WHITE}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
     echo -e "  ${YELLOW}2.${NC} Configure your API keys: ${WHITE}gsai configure${NC}"
     echo -e "  ${YELLOW}3.${NC} Start coding with AI: ${WHITE}gsai chat${NC}"
     echo ""
@@ -673,7 +438,7 @@ show_completion() {
     echo ""
     echo -e "${CYAN}Configuration:${NC}"
     echo -e "  Config file: ${WHITE}$HOME/.ai/gsai/.env${NC}"
-    echo -e "  Install location: ${WHITE}$INSTALL_DIR/gsai${NC}"
+    echo -e "  Install location: ${WHITE}$HOME/.local/bin/gsai${NC}"
     echo ""
     echo -e "${BLUE}Get API keys:${NC}"
     echo -e "  OpenAI: ${WHITE}https://platform.openai.com/api-keys${NC}"
@@ -693,7 +458,6 @@ main() {
     check_prerequisites
     install_uv
     download_source
-    build_application
     install_application
     configure_path
     configure_api_keys

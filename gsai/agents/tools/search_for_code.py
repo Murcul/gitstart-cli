@@ -31,6 +31,14 @@ def use_grep_ast(
     Returns:
         String containing the grep_ast output with AST context
     """
+    import platform
+    import shutil
+    
+    # Check if grep-ast is available
+    if not shutil.which("grep-ast"):
+        logger.warning("grep-ast command not found in PATH")
+        return f"grep-ast command not available on {platform.system()}"
+    
     # Build the grep_ast command
     cmd = ["grep-ast"]
 
@@ -46,16 +54,28 @@ def use_grep_ast(
     # Add the filenames
     cmd.append(filenames)
 
-    # Execute the command
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    # Return the output
-    return result.stdout
+    try:
+        # Execute the command with better error handling
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,  # Add timeout to prevent hanging
+        )
+        
+        # Return the output
+        return result.stdout
+        
+    except subprocess.TimeoutExpired:
+        logger.error(f"grep-ast command timed out for pattern: {pattern}")
+        return f"Search timed out for pattern: {pattern}"
+    except FileNotFoundError as e:
+        logger.error(f"grep-ast executable not found: {e}")
+        return f"grep-ast executable not found: {e}"
+    except Exception as e:
+        logger.error(f"Error running grep-ast: {e}")
+        return f"Error running grep-ast: {e}"
 
 
 @with_progress_display("search_for_code", search_code_description)

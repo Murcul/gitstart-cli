@@ -67,14 +67,28 @@ def run_command(
         logger.info(f"Executing command: {command} in directory: {work_dir}")
 
         # Execute the command with security constraints
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=work_dir,
-        )
+        # Better Windows compatibility
+        import platform
+        
+        # On Windows, use cmd.exe for shell commands
+        if platform.system() == "Windows":
+            shell_cmd = ["cmd", "/c", command]
+            result = subprocess.run(
+                shell_cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=work_dir,
+            )
+        else:
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=work_dir,
+            )
 
         # Prepare output
         output_lines = []

@@ -11,7 +11,7 @@ from gsai.security import safe_construct_path
 
 def use_ls(repo_path: str, relative_file_path: str, recursive: bool) -> str:
     """
-    Use the ls command to list files and directories.
+    Use the ls command (or equivalent) to list files and directories.
 
     Args:
         repo_path: The repository path
@@ -21,12 +21,21 @@ def use_ls(repo_path: str, relative_file_path: str, recursive: bool) -> str:
     Returns:
         The ls command output
     """
+    import platform
+    
     full_path = safe_construct_path(repo_path, relative_file_path)
 
-    if recursive:
-        cmd = ["ls", "-la", "-R", full_path]
+    # Use platform-appropriate commands
+    if platform.system() == "Windows":
+        if recursive:
+            cmd = ["dir", "/s", "/a", full_path]
+        else:
+            cmd = ["dir", "/a", full_path]
     else:
-        cmd = ["ls", "-la", full_path]
+        if recursive:
+            cmd = ["ls", "-la", "-R", full_path]
+        else:
+            cmd = ["ls", "-la", full_path]
 
     try:
         result = subprocess.run(
@@ -34,10 +43,17 @@ def use_ls(repo_path: str, relative_file_path: str, recursive: bool) -> str:
             capture_output=True,
             text=True,
             check=True,
+            shell=(platform.system() == "Windows"),  # Use shell on Windows for dir command
         )
         return result.stdout
     except subprocess.CalledProcessError as e:
         return f"Error listing files: {e.stderr}"
+    except FileNotFoundError as e:
+        logger.error(f"Command not found: {e}")
+        return f"Command not found: {e}"
+    except Exception as e:
+        logger.error(f"Error running file listing command: {e}")
+        return f"Error running file listing command: {e}"
 
 
 def list_files(

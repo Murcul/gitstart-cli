@@ -46,64 +46,33 @@ class ChatSession:
     async def ensure_api_keys(self) -> bool:
         """Ensure API keys are configured, prompt if missing."""
         
-        # Use the comprehensive key resolver
-        try:
-            from gsai.key_resolver import get_final_api_keys, patch_cli_settings, get_key_status
+        # Check if API keys are configured
+        has_openai = cli_settings.OPENAI_API_KEY and cli_settings.OPENAI_API_KEY.strip()
+        has_anthropic = cli_settings.ANTHROPIC_API_KEY and cli_settings.ANTHROPIC_API_KEY.strip()
+        
+        if has_openai or has_anthropic:
+            # Show which keys are available
+            available_keys = []
+            if has_openai:
+                available_keys.append("OpenAI")
+            if has_anthropic:
+                available_keys.append("Anthropic")
             
-            # Patch CLI settings with resolved keys
-            patch_cli_settings()
-            
-            # Get key status
-            status = get_key_status()
-            
-            if status['has_keys']:
-                # Show which keys are available and their sources
-                available_keys = []
-                if status['openai']['available']:
-                    available_keys.append(f"OpenAI ({status['openai']['source']})")
-                if status['anthropic']['available']:
-                    available_keys.append(f"Anthropic ({status['anthropic']['source']})")
-                
-                console.print(f"[green]✓ API keys ready: {', '.join(available_keys)}[/green]")
-                return True
-            else:
-                # No keys available from any source
-                build_info = status.get('build', {})
-                if build_info.get('is_production', False):
-                    message = "[red]Production build error: No API keys available.[/red]\n\n" \
-                             "This production build should have embedded API keys, but none were found.\n" \
-                             "Please contact support or configure your own keys."
-                else:
-                    message = "[yellow]No API keys configured.[/yellow]\n\n" \
-                             "You can configure API keys by:\n" \
-                             "• Running 'gsai configure'\n" \
-                             "• Using the /set-api-key command\n" \
-                             "• Setting environment variables OPENAI_API_KEY or ANTHROPIC_API_KEY"
-                
-                console.print(
-                    Panel(
-                        message,
-                        title="API Keys Required",
-                        border_style="yellow",
-                    )
-                )
-                return False
-        except Exception as e:
-            # Fallback to original logic if key resolver fails
-            console.print(f"[yellow]Warning: Key resolver error: {e}[/yellow]")
-            has_openai = cli_settings.OPENAI_API_KEY and cli_settings.OPENAI_API_KEY.strip()
-            has_anthropic = cli_settings.ANTHROPIC_API_KEY and cli_settings.ANTHROPIC_API_KEY.strip()
-            
-            if not (has_openai or has_anthropic):
-                console.print(
-                    Panel(
-                        "[yellow]No API keys found. Please configure API keys to continue.[/yellow]",
-                        title="API Keys Required",
-                        border_style="yellow",
-                    )
-                )
-                return False
+            console.print(f"[green]✓ API keys configured: {', '.join(available_keys)}[/green]")
             return True
+        else:
+            console.print(
+                Panel(
+                    "[yellow]No API keys configured.[/yellow]\n\n"
+                    "You can configure API keys by:\n"
+                    "• Running 'gsai configure'\n"
+                    "• Using the /set-api-key command\n"
+                    "• Setting environment variables OPENAI_API_KEY or ANTHROPIC_API_KEY",
+                    title="API Keys Required",
+                    border_style="yellow",
+                )
+            )
+            return False
 
     async def prompt_for_missing_keys(self) -> None:
         """Interactively prompt for missing API keys."""

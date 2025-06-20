@@ -1,12 +1,4 @@
-# Import embedded keys using lightweight module to avoid dependency issues
-try:
-    from gsai.embedded_keys import get_api_keys
-    _api_keys = get_api_keys()
-    DECRYPTED_OPENAI_KEY = _api_keys['openai']
-    DECRYPTED_ANTHROPIC_KEY = _api_keys['anthropic']
-except ImportError:
-    DECRYPTED_OPENAI_KEY = ''
-    DECRYPTED_ANTHROPIC_KEY = ''
+# No embedded keys - users configure their own API keys
 
 """CLI-specific configuration extending base settings."""
 
@@ -420,8 +412,8 @@ class Settings(BaseSettings):
     )
 
     # Model Keys
-    OPENAI_API_KEY: str = Field(default=DECRYPTED_OPENAI_KEY or "", description="OpenAI API Key")
-    ANTHROPIC_API_KEY: str = Field(default=DECRYPTED_ANTHROPIC_KEY or "", description="Anthropic API Key")
+    OPENAI_API_KEY: str = Field(default="", description="OpenAI API Key")
+    ANTHROPIC_API_KEY: str = Field(default="", description="Anthropic API Key")
 
     # Where all repos should be stored
     REPOS_PATH: str = Field(

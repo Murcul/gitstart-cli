@@ -50,8 +50,29 @@ def get_final_api_keys():
         except Exception:
             pass
     
-    # Step 3: User configured keys would go here, but we'll skip this for now
-    # since the main config system has dependency issues
+    # Step 3: Check user configured keys (only if not already set)
+    if not final_openai or not final_anthropic:
+        try:
+            import pathlib
+            global_config_file = pathlib.Path.home() / ".ai" / "gsai" / ".env"
+            
+            if global_config_file.exists():
+                with open(global_config_file) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and "=" in line and not line.startswith("#"):
+                            key, value = line.split("=", 1)
+                            value = value.strip()
+                            
+                            if key == "OPENAI_API_KEY" and not final_openai and value:
+                                final_openai = value
+                                sources['openai'] = 'user_config'
+                            
+                            elif key == "ANTHROPIC_API_KEY" and not final_anthropic and value:
+                                final_anthropic = value
+                                sources['anthropic'] = 'user_config'
+        except Exception:
+            pass
     
     return {
         'openai_key': final_openai,
@@ -69,14 +90,12 @@ def patch_cli_settings():
         
         keys = get_final_api_keys()
         
-        # Only patch if the settings don't already have keys
-        if not (cli_settings.OPENAI_API_KEY and cli_settings.OPENAI_API_KEY.strip()):
-            if keys['openai_key']:
-                cli_settings.OPENAI_API_KEY = keys['openai_key']
+        # Force override the keys if we have better ones from our resolver
+        if keys['openai_key']:
+            cli_settings.OPENAI_API_KEY = keys['openai_key']
         
-        if not (cli_settings.ANTHROPIC_API_KEY and cli_settings.ANTHROPIC_API_KEY.strip()):
-            if keys['anthropic_key']:
-                cli_settings.ANTHROPIC_API_KEY = keys['anthropic_key']
+        if keys['anthropic_key']:
+            cli_settings.ANTHROPIC_API_KEY = keys['anthropic_key']
         
         return True
     except Exception:
